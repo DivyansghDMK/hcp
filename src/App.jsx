@@ -1,0 +1,1040 @@
+import React, { useState, useEffect } from "react";
+import {
+  Activity, Users, Building2, Stethoscope, Shield, FileText,
+  ChevronDown, LogOut, Search, Plus, X, Edit2, Trash2, Eye,
+  Wifi, WifiOff, AlertTriangle, UserPlus, MapPin, ClipboardList,
+  Settings, ArrowLeft, Menu
+} from "lucide-react";
+
+/* ---------------------------------------------------------
+   DeckLink — Clinician Portal
+   Palette: deep navy base + steel-blue accent
+--------------------------------------------------------- */
+
+const COLORS = {
+  bg: "#0D1420",
+  panel: "#141D2C",
+  panel2: "#101724",
+  border: "#263042",
+  orange1: "#2E7DB8",   // primary accent — steel blue
+  orange2: "#3E97D6",
+  text: "#E6EAF0",
+  sub: "#7C8AA0",
+  danger: "#D9534F",
+  ok: "#3FA772",
+  warn: "#C99A3C",
+};
+
+const uid = () => Math.random().toString(36).slice(2, 10);
+const LS_KEY = "decklink_data_v1";
+const SS_KEY = "decklink_session_v1";
+
+const ROLES = [
+  "Sr. Clinical Doctor",
+  "Jr. Clinical Doctor",
+  "Sr. Admin",
+  "Jr. Admin",
+  "Employee",
+  "Receptionist",
+];
+
+const seedData = () => ({
+  orgs: [
+    { id: "org1", name: "Faridabad Sleep & Respiratory Clinic", type: "HCP Head" },
+  ],
+  users: {
+    org1: [
+      { id: uid(), name: "Dr. Aditi Sharma", role: "Sr. Clinical Doctor", email: "aditi.sharma@fsrc.in", phone: "9810000001", providerId: "PRV-1001" },
+      { id: uid(), name: "Rahul Mehta", role: "Sr. Admin", email: "rahul.mehta@fsrc.in", phone: "9810000002", providerId: "" },
+      { id: uid(), name: "Priya Nair", role: "Receptionist", email: "priya.nair@fsrc.in", phone: "9810000003", providerId: "" },
+    ],
+  },
+  physicians: {
+    org1: [
+      { id: uid(), name: "Dr. Karan Bose", speciality: "Pulmonology", hospital: "Apollo Gurgaon", phone: "9911112222", access: "Read-only" },
+      { id: uid(), name: "Dr. Sunita Rao", speciality: "Sleep Medicine", hospital: "Fortis Faridabad", phone: "9911113333", access: "Read-only" },
+    ],
+  },
+  insurers: {
+    org1: [
+      { id: uid(), name: "Star Health", policyPortal: "portal.starhealth.in", contact: "billing@starhealth.in" },
+    ],
+  },
+  locations: {
+    org1: [
+      { id: uid(), name: "Main Clinic", address: "Sector 15, Faridabad, HR" },
+    ],
+  },
+  patients: {
+    org1: [
+      { id: uid(), name: "Vikram Chauhan", age: 54, therapy: "CPAP", connectivity: "Wireless", ahi: 3.2, usageHrs: 6.5, status: "Compliant", alert: null },
+      { id: uid(), name: "Meena Kulkarni", age: 61, therapy: "BiPAP", connectivity: "Wireless", ahi: 8.9, usageHrs: 3.1, status: "Attention", alert: "Low usage 3 nights" },
+      { id: uid(), name: "Ashok Verma", age: 47, therapy: "CPAP", connectivity: "SD Card", ahi: 1.8, usageHrs: 7.2, status: "Compliant", alert: null },
+      { id: uid(), name: "Ritu Malhotra", age: 39, therapy: "BiPAP-Ventilation", connectivity: "Wireless", ahi: 12.4, usageHrs: 2.0, status: "Critical", alert: "High residual AHI + low adherence" },
+      { id: uid(), name: "Suresh Iyer", age: 66, therapy: "CPAP", connectivity: "Wireless", ahi: 2.1, usageHrs: 6.9, status: "Compliant", alert: null },
+    ],
+  },
+  referrals: {
+    org1: [
+      { id: uid(), patient: "Neha Kapoor", referredBy: "Dr. Karan Bose", reason: "Suspected OSA", date: "2026-06-28", status: "Pending" },
+    ],
+  },
+});
+
+function loadData() {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch (e) {}
+  const seeded = seedData();
+  localStorage.setItem(LS_KEY, JSON.stringify(seeded));
+  return seeded;
+}
+function saveData(d) { localStorage.setItem(LS_KEY, JSON.stringify(d)); }
+function loadSession() {
+  try {
+    const raw = sessionStorage.getItem(SS_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch (e) {}
+  return null;
+}
+function saveSession(s) { sessionStorage.setItem(SS_KEY, JSON.stringify(s)); }
+function clearSession() { sessionStorage.removeItem(SS_KEY); }
+
+/* ---------------- Shared UI ---------------- */
+
+function Btn({ children, onClick, variant = "primary", style, type = "button", disabled }) {
+  const base = {
+    padding: "10px 18px", borderRadius: 8, fontSize: 14, fontWeight: 600,
+    cursor: disabled ? "not-allowed" : "pointer", border: "1px solid transparent",
+    transition: "all .15s", opacity: disabled ? 0.5 : 1,
+  };
+  const variants = {
+    primary:  { background: `linear-gradient(135deg, ${COLORS.orange1}, ${COLORS.orange2})`, color: "#FFFFFF" },
+    ghost:    { background: "transparent", color: COLORS.text, border: `1px solid ${COLORS.border}` },
+    danger:   { background: "transparent", color: COLORS.danger, border: `1px solid ${COLORS.danger}55` },
+  };
+  return (
+    <button type={type} disabled={disabled} onClick={onClick} style={{ ...base, ...variants[variant], ...style }}>
+      {children}
+    </button>
+  );
+}
+
+function Field({ label, children }) {
+  return (
+    <div style={{ marginBottom: 14 }}>
+      <label style={{ display: "block", fontSize: 12, color: COLORS.sub, marginBottom: 6, letterSpacing: 0.3 }}>
+        {label}
+      </label>
+      {children}
+    </div>
+  );
+}
+
+const inputStyle = {
+  width: "100%", padding: "10px 12px", borderRadius: 8,
+  border: `1px solid ${COLORS.border}`, background: COLORS.panel2,
+  color: COLORS.text, fontSize: 14, outline: "none", boxSizing: "border-box",
+};
+
+function Modal({ title, onClose, children, width = 480 }) {
+  return (
+    <div style={{
+      position: "fixed", inset: 0, background: "rgba(4,7,14,0.75)",
+      display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100,
+    }}>
+      <div style={{
+        width, maxWidth: "90vw", maxHeight: "85vh", overflowY: "auto",
+        background: COLORS.panel, border: `1px solid ${COLORS.border}`,
+        borderRadius: 14, padding: 24,
+      }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
+          <h3 style={{ margin: 0, fontSize: 17, color: COLORS.text }}>{title}</h3>
+          <button onClick={onClose} style={{ background: "none", border: "none", color: COLORS.sub, cursor: "pointer" }}>
+            <X size={18} />
+          </button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function StatusPill({ status }) {
+  const map = {
+    Compliant: { c: COLORS.ok,     bg: "#3FA77222" },
+    Attention: { c: COLORS.warn,   bg: "#C99A3C22" },
+    Critical:  { c: COLORS.danger, bg: "#D9534F22" },
+    Pending:   { c: COLORS.warn,   bg: "#C99A3C22" },
+  };
+  const s = map[status] || { c: COLORS.sub, bg: "#7C8AA022" };
+  return (
+    <span style={{ color: s.c, background: s.bg, fontSize: 12, fontWeight: 600, padding: "4px 10px", borderRadius: 999 }}>
+      {status}
+    </span>
+  );
+}
+
+/* ---------------- Pre-auth screens ---------------- */
+
+function useWindowWidth() {
+  const [width, setWidth] = useState(typeof window !== "undefined" ? window.innerWidth : 1200);
+  useEffect(() => {
+    const handleResize = () => setWidth(window.innerWidth);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+  return width;
+}
+
+function Logo({ small }) {
+  const height = small ? 30 : 48;
+  return (
+    <div style={{ display: "flex", alignItems: "center", marginBottom: small ? 0 : 8 }}>
+      <img src="/logo.png" alt="DeckLink Logo" style={{ height, objectFit: "contain" }} />
+    </div>
+  );
+}
+
+function Centered({ children }) {
+  return (
+    <div style={{
+      minHeight: "100vh",
+      backgroundImage: "linear-gradient(rgba(11, 18, 32, 0.45), rgba(11, 18, 32, 0.65)), url('/login-bg.png')",
+      backgroundSize: "cover",
+      backgroundPosition: "center",
+      backgroundRepeat: "no-repeat",
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+      justifyContent: "center",
+      padding: 16,
+      fontFamily: "Inter, system-ui, sans-serif",
+    }}>
+      {children}
+    </div>
+  );
+}
+
+const cardStyle = {
+  background: "rgba(11, 18, 32, 0.82)",
+  border: "1px solid rgba(255, 255, 255, 0.12)",
+  borderRadius: "24px",
+  padding: "36px 40px",
+  width: "100%",
+  maxWidth: "460px",
+  boxShadow: "0 32px 64px rgba(0,0,0,0.65)",
+  backdropFilter: "blur(20px)",
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center"
+};
+
+function Landing({ onNewOrg, onExisting }) {
+  return (
+    <Centered>
+      <div style={cardStyle}>
+        <Logo />
+        <p style={{ color: COLORS.sub, marginBottom: 32, textAlign: "center", fontSize: 14 }}>
+          CPAP / BiPAP therapy monitoring — clinician portal
+        </p>
+        <div style={{ display: "flex", flexDirection: "column", gap: 14, width: "100%" }}>
+          <Btn onClick={onNewOrg} style={{ width: "100%" }}>Register new organisation</Btn>
+          <Btn variant="ghost" onClick={onExisting} style={{ width: "100%" }}>Sign in to existing organisation</Btn>
+        </div>
+      </div>
+    </Centered>
+  );
+}
+
+function OrgSelect({ data, onSelect, onDelete, onBack, onCreateNew }) {
+  return (
+    <Centered>
+      <div style={cardStyle}>
+        <Logo />
+        <div style={{ width: "100%", marginTop: 20 }}>
+          <h3 style={{ color: COLORS.text, fontSize: 16, marginBottom: 14, textAlign: "center" }}>Select organisation</h3>
+          {data.orgs.length === 0 && <p style={{ color: COLORS.sub, fontSize: 14, textAlign: "center", marginBottom: 14 }}>No organisations yet.</p>}
+          <div style={{ maxHeight: "240px", overflowY: "auto", width: "100%", paddingRight: 4, marginBottom: 14 }}>
+            {data.orgs.map((o) => (
+              <div key={o.id} style={{
+                display: "flex", justifyContent: "space-between", alignItems: "center",
+                background: COLORS.panel2, border: `1px solid ${COLORS.border}`,
+                borderRadius: 10, padding: "12px 14px", marginBottom: 10, gap: 10
+              }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ color: COLORS.text, fontWeight: 600, fontSize: 13.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{o.name}</div>
+                  <div style={{ color: COLORS.sub, fontSize: 11.5 }}>{o.type}</div>
+                </div>
+                <div style={{ display: "flex", gap: 6 }}>
+                  <Btn onClick={() => onSelect(o)} style={{ padding: "6px 12px", fontSize: 12.5 }}>Continue</Btn>
+                  <button onClick={() => onDelete(o.id)} style={{
+                    background: "none", border: `1px solid ${COLORS.danger}55`,
+                    borderRadius: 8, color: COLORS.danger, cursor: "pointer", padding: "0 8px",
+                  }}>
+                    <Trash2 size={13} />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+            <Btn variant="ghost" onClick={onBack} style={{ padding: "8px 14px", fontSize: 13 }}><ArrowLeft size={13} style={{ marginRight: 4, verticalAlign: -1 }} />Back</Btn>
+            <Btn variant="ghost" onClick={onCreateNew} style={{ padding: "8px 14px", fontSize: 13 }}>+ New Org</Btn>
+          </div>
+        </div>
+      </div>
+    </Centered>
+  );
+}
+
+function RoleCard({ label, desc, onClick }) {
+  return (
+    <div onClick={onClick} style={{
+      width: "100%", background: COLORS.panel2, border: `1px solid ${COLORS.border}`,
+      borderRadius: 12, padding: 18, cursor: "pointer",
+      transition: "border-color .15s",
+    }}
+      onMouseEnter={(e) => e.currentTarget.style.borderColor = COLORS.orange1}
+      onMouseLeave={(e) => e.currentTarget.style.borderColor = COLORS.border}
+    >
+      <div style={{ color: COLORS.orange1, fontWeight: 700, marginBottom: 6 }}>{label}</div>
+      <div style={{ color: COLORS.sub, fontSize: 12.5, lineHeight: 1.4 }}>{desc}</div>
+    </div>
+  );
+}
+
+function RoleSelect({ onPick, onBack }) {
+  return (
+    <Centered>
+      <div style={cardStyle}>
+        <Logo />
+        <h3 style={{ color: COLORS.text, fontSize: 16, margin: "20px 0 16px" }}>Continue as</h3>
+        <div style={{ display: "flex", gap: 14, flexDirection: "column", width: "100%", marginBottom: 20 }}>
+          <RoleCard label="Doctor Head" desc="Clinical lead — full patient & clinical data access" onClick={() => onPick("Doctor Head")} />
+          <RoleCard label="HCP Head" desc="Admin lead — organisation, staff & compliance management" onClick={() => onPick("HCP Head")} />
+        </div>
+        <Btn variant="ghost" onClick={onBack} style={{ width: "100%" }}>
+          <ArrowLeft size={14} style={{ marginRight: 6, verticalAlign: -2 }} />Back
+        </Btn>
+      </div>
+    </Centered>
+  );
+}
+
+function TabBtn({ active, children, onClick }) {
+  return (
+    <button onClick={onClick} style={{
+      flex: 1, padding: "8px 10px", borderRadius: 8, fontSize: 13, cursor: "pointer",
+      border: `1px solid ${active ? COLORS.orange1 : COLORS.border}`,
+      background: active ? `${COLORS.orange1}22` : "transparent",
+      color: active ? COLORS.orange1 : COLORS.sub, fontWeight: 600,
+    }}>
+      {children}
+    </button>
+  );
+}
+
+function AuthForm({ mode, role, onSubmit, onSwitchMode, onBack }) {
+  const [tab, setTab] = useState("password");
+  const [form, setForm] = useState({ orgName: "", name: "", email: "", phone: "", password: "", providerId: "", city: "" });
+  const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
+
+  return (
+    <Centered>
+      <div style={{ ...cardStyle, maxWidth: "500px" }}>
+        <Logo />
+        <div style={{ width: "100%", marginTop: 16 }}>
+          <h3 style={{ color: COLORS.text, fontSize: 17, marginBottom: 4, textAlign: "center" }}>
+            {mode === "signup" ? "Create Account" : "Sign In"}
+          </h3>
+          <p style={{ color: COLORS.sub, fontSize: 13, marginBottom: 18, textAlign: "center" }}>
+            {role} — {form.orgName || "Organisation"}
+          </p>
+
+          {mode === "login" && (
+            <div style={{ display: "flex", gap: 8, marginBottom: 18 }}>
+              <TabBtn active={tab === "password"} onClick={() => setTab("password")}>Name & Password</TabBtn>
+              <TabBtn active={tab === "phone"} onClick={() => setTab("phone")}>Phone Number</TabBtn>
+            </div>
+          )}
+
+          <div style={{ maxHeight: "360px", overflowY: "auto", paddingRight: 4, marginBottom: 18 }}>
+            {mode === "signup" && (
+              <>
+                <Field label="Organisation Name">
+                  <input style={inputStyle} value={form.orgName} onChange={set("orgName")} placeholder="e.g. Faridabad Sleep & Respiratory Clinic" />
+                </Field>
+                <Field label="Full Name">
+                  <input style={inputStyle} value={form.name} onChange={set("name")} placeholder="Dr. / Mr. / Ms. full name" />
+                </Field>
+                <Field label="Email">
+                  <input style={inputStyle} value={form.email} onChange={set("email")} placeholder="name@clinic.in" />
+                </Field>
+                <Field label="Phone Number">
+                  <input style={inputStyle} value={form.phone} onChange={set("phone")} placeholder="10-digit mobile" />
+                </Field>
+                {role === "Doctor Head" && (
+                  <Field label="Provider ID">
+                    <input style={inputStyle} value={form.providerId} onChange={set("providerId")} placeholder="Clinical provider identifier" />
+                  </Field>
+                )}
+                <Field label="City">
+                  <input style={inputStyle} value={form.city} onChange={set("city")} placeholder="City" />
+                </Field>
+                <Field label="Password">
+                  <input type="password" style={inputStyle} value={form.password} onChange={set("password")} placeholder="Create a password" />
+                </Field>
+              </>
+            )}
+
+            {mode === "login" && tab === "password" && (
+              <>
+                <Field label="Name"><input style={inputStyle} value={form.name} onChange={set("name")} placeholder="Your name" /></Field>
+                <Field label="Password"><input type="password" style={inputStyle} value={form.password} onChange={set("password")} placeholder="Password" /></Field>
+              </>
+            )}
+            {mode === "login" && tab === "phone" && (
+              <Field label="Phone Number"><input style={inputStyle} value={form.phone} onChange={set("phone")} placeholder="10-digit mobile" /></Field>
+            )}
+          </div>
+
+          <Btn onClick={() => onSubmit(form)} style={{ width: "100%", minHeight: "44px" }}>
+            {mode === "signup" ? "Create Account" : "Sign In"}
+          </Btn>
+
+          <div style={{ display: "flex", justifyContent: "space-between", marginTop: 16, alignItems: "center", flexWrap: "wrap", gap: 12 }}>
+            <Btn variant="ghost" onClick={onBack} style={{ padding: "8px 12px" }}><ArrowLeft size={13} style={{ marginRight: 4, verticalAlign: -1 }} />Back</Btn>
+            <button onClick={onSwitchMode} style={{ background: "none", border: "none", color: COLORS.orange1, cursor: "pointer", fontSize: 13, fontWeight: 600 }}>
+              {mode === "signup" ? "Sign in instead" : "Create account"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Centered>
+  );
+}
+
+/* ---------------- Dashboard top nav ---------------- */
+
+const NAV = {
+  patients: [
+    { key: "all",        label: "All therapy" },
+    { key: "wireless",   label: "Wireless" },
+    { key: "action",     label: "Action Groups" },
+    { key: "ventilation",label: "Ventilation patients" },
+    { key: "referrals",  label: "Referrals" },
+  ],
+  business: [
+    { key: "modules",    label: "Module management" },
+    { key: "compliance", label: "Compliance exports" },
+  ],
+  admin: [
+    { key: "org",               label: "Organisation Details" },
+    { key: "locations",         label: "Locations" },
+    { key: "users",             label: "Users" },
+    { key: "physicians",        label: "Physicians" },
+    { key: "insurers",          label: "Insurers" },
+    { key: "complianceOptions", label: "Compliance options" },
+  ],
+};
+
+function NavDropdown({ label, icon, items, onPick, active }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div style={{ position: "relative" }}
+      onMouseEnter={() => setOpen(true)}
+      onMouseLeave={() => setOpen(false)}
+    >
+      <button style={{
+        display: "flex", alignItems: "center", gap: 6, background: "none", border: "none",
+        color: active ? COLORS.orange1 : COLORS.text,
+        fontSize: 14, fontWeight: 600, cursor: "pointer", padding: "8px 4px",
+      }}>
+        {icon}{label}<ChevronDown size={14} />
+      </button>
+      {open && (
+        <div style={{
+          position: "absolute", top: "100%", left: 0, background: COLORS.panel,
+          border: `1px solid ${COLORS.border}`, borderRadius: 10, minWidth: 210,
+          padding: 6, zIndex: 50, boxShadow: "0 12px 28px rgba(0,0,0,0.5)",
+        }}>
+          {items.map((it) => (
+            <div key={it.key} onClick={() => { onPick(it.key); setOpen(false); }}
+              style={{ padding: "10px 12px", borderRadius: 7, fontSize: 13.5, color: COLORS.text, cursor: "pointer", fontWeight: 500 }}
+              onMouseEnter={(e) => e.currentTarget.style.background = COLORS.panel2}
+              onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
+            >
+              {it.label}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TopBar({ session, view, setView, onLogout }) {
+  const width = useWindowWidth();
+  const isMobile = width < 768;
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [activeDropdown, setActiveDropdown] = useState(null);
+
+  const handleNavPick = (section, tab) => {
+    setView({ section, tab });
+    setMenuOpen(false);
+    setActiveDropdown(null);
+  };
+
+  const toggleDropdown = (name) => {
+    setActiveDropdown(activeDropdown === name ? null : name);
+  };
+
+  if (isMobile) {
+    return (
+      <div style={{ borderBottom: `1px solid ${COLORS.border}`, background: COLORS.panel, position: "relative", zIndex: 1000 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 20px" }}>
+          <Logo small />
+          <button onClick={() => setMenuOpen(!menuOpen)} style={{ background: "none", border: "none", color: COLORS.text, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: 6 }}>
+            {menuOpen ? <X size={24} /> : <Menu size={24} />}
+          </button>
+        </div>
+        {menuOpen && (
+          <div style={{ background: COLORS.panel, borderTop: `1px solid ${COLORS.border}`, padding: "16px 20px 24px", display: "flex", flexDirection: "column", gap: 16 }}>
+            <div>
+              <button onClick={() => toggleDropdown('patients')} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", background: "none", border: "none", color: view.section === "patients" ? COLORS.orange1 : COLORS.text, fontSize: 15, fontWeight: 600, cursor: "pointer", padding: "8px 0" }}>
+                <span style={{ display: "flex", alignItems: "center", gap: 8 }}><Users size={16} /> Patients</span>
+                <ChevronDown size={16} style={{ transform: activeDropdown === 'patients' ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
+              </button>
+              {activeDropdown === 'patients' && (
+                <div style={{ paddingLeft: 24, display: "flex", flexDirection: "column", gap: 4, marginTop: 4 }}>
+                  {NAV.patients.map(it => (
+                    <div key={it.key} onClick={() => handleNavPick("patients", it.key)} style={{ padding: "8px 0", fontSize: 14, color: view.section === "patients" && view.tab === it.key ? COLORS.orange1 : COLORS.sub, cursor: "pointer" }}>
+                      {it.label}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div>
+              <button onClick={() => toggleDropdown('business')} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", background: "none", border: "none", color: view.section === "business" ? COLORS.orange1 : COLORS.text, fontSize: 15, fontWeight: 600, cursor: "pointer", padding: "8px 0" }}>
+                <span style={{ display: "flex", alignItems: "center", gap: 8 }}><Building2 size={16} /> Business</span>
+                <ChevronDown size={16} style={{ transform: activeDropdown === 'business' ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
+              </button>
+              {activeDropdown === 'business' && (
+                <div style={{ paddingLeft: 24, display: "flex", flexDirection: "column", gap: 4, marginTop: 4 }}>
+                  {NAV.business.map(it => (
+                    <div key={it.key} onClick={() => handleNavPick("business", it.key)} style={{ padding: "8px 0", fontSize: 14, color: view.section === "business" && view.tab === it.key ? COLORS.orange1 : COLORS.sub, cursor: "pointer" }}>
+                      {it.label}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div>
+              <button onClick={() => toggleDropdown('admin')} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", background: "none", border: "none", color: view.section === "admin" ? COLORS.orange1 : COLORS.text, fontSize: 15, fontWeight: 600, cursor: "pointer", padding: "8px 0" }}>
+                <span style={{ display: "flex", alignItems: "center", gap: 8 }}><Shield size={16} /> Administration</span>
+                <ChevronDown size={16} style={{ transform: activeDropdown === 'admin' ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
+              </button>
+              {activeDropdown === 'admin' && (
+                <div style={{ paddingLeft: 24, display: "flex", flexDirection: "column", gap: 4, marginTop: 4 }}>
+                  {NAV.admin.map(it => (
+                    <div key={it.key} onClick={() => handleNavPick("admin", it.key)} style={{ padding: "8px 0", fontSize: 14, color: view.section === "admin" && view.tab === it.key ? COLORS.orange1 : COLORS.sub, cursor: "pointer" }}>
+                      {it.label}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div style={{ height: 1, background: COLORS.border, margin: "8px 0" }} />
+            <div onClick={() => handleNavPick("profile")} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 15, fontWeight: 600, color: view.section === "profile" ? COLORS.orange1 : COLORS.text, cursor: "pointer", padding: "8px 0" }}>
+              <Settings size={16} /> My profile
+            </div>
+            <div style={{ fontSize: 13, color: COLORS.sub, padding: "4px 0" }}>
+              Logged in as: <strong style={{ color: COLORS.text }}>{session.userName}</strong> ({session.role})
+            </div>
+            <button onClick={onLogout} style={{ background: "none", border: `1px solid ${COLORS.border}`, borderRadius: 8, color: COLORS.danger, cursor: "pointer", padding: "10px 14px", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, fontSize: 14, fontWeight: 600, marginTop: 8 }}>
+              <LogOut size={16} /> Logout
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div style={{
+      display: "flex", alignItems: "center", justifyContent: "space-between",
+      padding: "14px 28px", borderBottom: `1px solid ${COLORS.border}`, background: COLORS.panel,
+    }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 36 }}>
+        <Logo small />
+        <NavDropdown label="Patients" icon={<Users size={15} style={{ marginRight: 2 }} />}
+          items={NAV.patients} active={view.section === "patients"}
+          onPick={(k) => setView({ section: "patients", tab: k })} />
+        <NavDropdown label="Business" icon={<Building2 size={15} style={{ marginRight: 2 }} />}
+          items={NAV.business} active={view.section === "business"}
+          onPick={(k) => setView({ section: "business", tab: k })} />
+        <NavDropdown label="Administration" icon={<Shield size={15} style={{ marginRight: 2 }} />}
+          items={NAV.admin} active={view.section === "admin"}
+          onPick={(k) => setView({ section: "admin", tab: k })} />
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
+        <div onClick={() => setView({ section: "profile" })} style={{
+          cursor: "pointer", fontSize: 13.5,
+          color: view.section === "profile" ? COLORS.orange1 : COLORS.text, fontWeight: 600,
+        }}>
+          My profile
+        </div>
+        <div style={{ fontSize: 12.5, color: COLORS.sub }}>
+          {session.userName} · <span style={{ color: COLORS.orange1 }}>{session.role}</span>
+        </div>
+        <button onClick={onLogout} style={{
+          background: "none", border: `1px solid ${COLORS.border}`, borderRadius: 8,
+          color: COLORS.sub, cursor: "pointer", padding: "7px 12px",
+          display: "flex", alignItems: "center", gap: 6, fontSize: 13,
+        }}>
+          <LogOut size={14} /> Logout
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ---------------- Patients section ---------------- */
+
+function PatientsSection({ tab, orgData, orgId }) {
+  const [q, setQ] = useState("");
+  const patients  = orgData.patients[orgId]  || [];
+  const referrals = orgData.referrals[orgId] || [];
+
+  if (tab === "referrals") {
+    return (
+      <Panel title="Referrals" icon={<ClipboardList size={18} />}>
+        <Table
+          cols={["Patient", "Referred by", "Reason", "Date", "Status"]}
+          rows={referrals.map((r) => [r.patient, r.referredBy, r.reason, r.date, <StatusPill key={r.id} status={r.status} />])}
+          empty="No referrals yet."
+        />
+      </Panel>
+    );
+  }
+
+  let filtered = patients;
+  if (tab === "wireless")   filtered = patients.filter((p) => p.connectivity === "Wireless");
+  if (tab === "ventilation") filtered = patients.filter((p) => p.therapy.includes("Ventilation") || p.therapy === "BiPAP");
+  if (tab === "action")     filtered = patients.filter((p) => p.status !== "Compliant");
+  filtered = filtered.filter((p) => p.name.toLowerCase().includes(q.toLowerCase()));
+
+  const titleMap = { all: "All therapy", wireless: "Wireless patients", action: "Action Groups — needs attention", ventilation: "Ventilation patients" };
+
+  return (
+    <Panel title={titleMap[tab] || "Patients"} icon={<Users size={18} />}
+      right={
+        <div style={{ display: "flex", alignItems: "center", gap: 8, background: COLORS.panel2, border: `1px solid ${COLORS.border}`, borderRadius: 8, padding: "6px 10px" }}>
+          <Search size={14} color={COLORS.sub} />
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search patients"
+            style={{ background: "none", border: "none", outline: "none", color: COLORS.text, fontSize: 13 }} />
+        </div>
+      }
+    >
+      <Table
+        cols={["Patient", "Age", "Therapy", "Connectivity", "AHI", "Usage (hrs/night)", "Status", "Alert"]}
+        rows={filtered.map((p) => [
+          p.name, p.age, p.therapy,
+          <span key={p.id + "-c"} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            {p.connectivity === "Wireless" ? <Wifi size={13} color={COLORS.ok} /> : <WifiOff size={13} color={COLORS.sub} />}
+            {p.connectivity}
+          </span>,
+          p.ahi, p.usageHrs,
+          <StatusPill key={p.id + "-s"} status={p.status} />,
+          p.alert
+            ? <span key={p.id + "-a"} style={{ color: COLORS.warn, fontSize: 12.5, display: "flex", alignItems: "center", gap: 4 }}><AlertTriangle size={12} />{p.alert}</span>
+            : <span key={p.id + "-ok"} style={{ color: COLORS.sub }}>—</span>,
+        ])}
+        empty="No patients match this view."
+      />
+    </Panel>
+  );
+}
+
+/* ---------------- Business section ---------------- */
+
+function BusinessSection({ tab }) {
+  if (tab === "modules") {
+    return (
+      <Panel title="Module management" icon={<Settings size={18} />}>
+        {["CPAP Monitoring", "BiPAP Monitoring", "Ventilation Add-on", "Sleep Apnea Screening"].map((m) => (
+          <div key={m} style={{
+            display: "flex", justifyContent: "space-between", alignItems: "center",
+            padding: "14px 16px", border: `1px solid ${COLORS.border}`, borderRadius: 10, marginBottom: 10,
+            background: COLORS.panel2,
+          }}>
+            <span style={{ color: COLORS.text, fontSize: 14 }}>{m}</span>
+            <span style={{ color: COLORS.ok, fontSize: 12.5, fontWeight: 600 }}>Active</span>
+          </div>
+        ))}
+      </Panel>
+    );
+  }
+  return (
+    <Panel title="Compliance exports" icon={<FileText size={18} />}>
+      <p style={{ color: COLORS.sub, fontSize: 13.5, marginBottom: 16 }}>
+        Generate adherence/compliance reports for insurer reimbursement.
+      </p>
+      <Btn>Export compliance report (CSV)</Btn>
+    </Panel>
+  );
+}
+
+/* ---------------- Administration section ---------------- */
+
+function AdminSection({ tab, orgData, orgId, setOrgData }) {
+  const [modal, setModal] = useState(null);
+  const commit = (next) => { setOrgData(next); saveData(next); };
+
+  if (tab === "org") {
+    const org = orgData.orgs.find((o) => o.id === orgId);
+    return (
+      <Panel title="Organisation Details" icon={<Building2 size={18} />}>
+        <Field label="Organisation name"><input style={inputStyle} defaultValue={org?.name} /></Field>
+        <Field label="Organisation type"><input style={inputStyle} defaultValue={org?.type} disabled /></Field>
+        <Btn>Save changes</Btn>
+      </Panel>
+    );
+  }
+
+  if (tab === "locations") {
+    const locs = orgData.locations[orgId] || [];
+    return (
+      <Panel title="Locations" icon={<MapPin size={18} />}
+        right={<Btn onClick={() => setModal({ type: "location" })}><Plus size={14} style={{ marginRight: 6, verticalAlign: -2 }} />Add location</Btn>}
+      >
+        <Table cols={["Name", "Address"]} rows={locs.map((l) => [l.name, l.address])} empty="No locations added." />
+        {modal?.type === "location" && (
+          <SimpleAddModal title="Add location"
+            fields={[{ k: "name", label: "Location name" }, { k: "address", label: "Address" }]}
+            onClose={() => setModal(null)}
+            onSave={(vals) => { const n = { ...orgData }; n.locations[orgId] = [...locs, { id: uid(), ...vals }]; commit(n); setModal(null); }}
+          />
+        )}
+      </Panel>
+    );
+  }
+
+  if (tab === "insurers") {
+    const insurers = orgData.insurers[orgId] || [];
+    return (
+      <Panel title="Insurers" icon={<Shield size={18} />}
+        right={<Btn onClick={() => setModal({ type: "insurer" })}><Plus size={14} style={{ marginRight: 6, verticalAlign: -2 }} />Add insurer</Btn>}
+      >
+        <Table cols={["Name", "Policy portal", "Contact"]} rows={insurers.map((i) => [i.name, i.policyPortal, i.contact])} empty="No insurers added." />
+        {modal?.type === "insurer" && (
+          <SimpleAddModal title="Add insurer"
+            fields={[{ k: "name", label: "Insurer name" }, { k: "policyPortal", label: "Policy portal URL" }, { k: "contact", label: "Contact email" }]}
+            onClose={() => setModal(null)}
+            onSave={(vals) => { const n = { ...orgData }; n.insurers[orgId] = [...insurers, { id: uid(), ...vals }]; commit(n); setModal(null); }}
+          />
+        )}
+      </Panel>
+    );
+  }
+
+  if (tab === "complianceOptions") {
+    return (
+      <Panel title="Compliance options" icon={<FileText size={18} />}>
+        <Field label="Minimum usage hours/night for compliance"><input style={inputStyle} defaultValue="4" /></Field>
+        <Field label="Minimum compliant nights (of 30)"><input style={inputStyle} defaultValue="21" /></Field>
+        <Btn>Save options</Btn>
+      </Panel>
+    );
+  }
+
+  if (tab === "physicians") {
+    const physicians = orgData.physicians[orgId] || [];
+    return (
+      <Panel title="Physicians" icon={<Stethoscope size={18} />}
+        right={<Btn onClick={() => setModal({ type: "physician" })}><Plus size={14} style={{ marginRight: 6, verticalAlign: -2 }} />Add physician</Btn>}
+      >
+        <p style={{ color: COLORS.sub, fontSize: 12.5, marginBottom: 12 }}>
+          External referring physicians — read-only access to their referred patients' data.
+        </p>
+        <Table
+          cols={["Name", "Speciality", "Hospital", "Phone", "Access", ""]}
+          rows={physicians.map((p) => [
+            p.name, p.speciality, p.hospital, p.phone, p.access,
+            <button key={p.id} onClick={() => {
+              const n = { ...orgData }; n.physicians[orgId] = physicians.filter((x) => x.id !== p.id); commit(n);
+            }} style={{ background: "none", border: "none", color: COLORS.danger, cursor: "pointer" }}>
+              <Trash2 size={14} />
+            </button>,
+          ])}
+          empty="No physicians added."
+        />
+        {modal?.type === "physician" && (
+          <SimpleAddModal title="Add physician"
+            fields={[
+              { k: "name", label: "Full name" }, { k: "speciality", label: "Speciality" },
+              { k: "hospital", label: "Hospital / clinic" }, { k: "phone", label: "Phone" },
+            ]}
+            onClose={() => setModal(null)}
+            onSave={(vals) => { const n = { ...orgData }; n.physicians[orgId] = [...physicians, { id: uid(), access: "Read-only", ...vals }]; commit(n); setModal(null); }}
+          />
+        )}
+      </Panel>
+    );
+  }
+
+  // Users CRUD (default)
+  const users = orgData.users[orgId] || [];
+  return (
+    <Panel title="Users" icon={<Users size={18} />}
+      right={<Btn onClick={() => setModal({ type: "userCreate" })}><UserPlus size={14} style={{ marginRight: 6, verticalAlign: -2 }} />Add user</Btn>}
+    >
+      <Table
+        cols={["Name", "Role", "Email", "Phone", ""]}
+        rows={users.map((u) => [
+          u.name, u.role, u.email, u.phone,
+          <div key={u.id} style={{ display: "flex", gap: 8 }}>
+            <button onClick={() => setModal({ type: "userView", item: u })} style={{ background: "none", border: "none", color: COLORS.sub, cursor: "pointer" }}><Eye size={14} /></button>
+            <button onClick={() => setModal({ type: "userEdit", item: u })} style={{ background: "none", border: "none", color: COLORS.sub, cursor: "pointer" }}><Edit2 size={14} /></button>
+            <button onClick={() => { const n = { ...orgData }; n.users[orgId] = users.filter((x) => x.id !== u.id); commit(n); }}
+              style={{ background: "none", border: "none", color: COLORS.danger, cursor: "pointer" }}><Trash2 size={14} /></button>
+          </div>,
+        ])}
+        empty="No users yet."
+      />
+      {modal?.type === "userCreate" && (
+        <UserModal title="Add user" onClose={() => setModal(null)}
+          onSave={(vals) => { const n = { ...orgData }; n.users[orgId] = [...users, { id: uid(), providerId: "", ...vals }]; commit(n); setModal(null); }}
+        />
+      )}
+      {modal?.type === "userEdit" && (
+        <UserModal title="Edit user" initial={modal.item} onClose={() => setModal(null)}
+          onSave={(vals) => { const n = { ...orgData }; n.users[orgId] = users.map((x) => x.id === modal.item.id ? { ...x, ...vals } : x); commit(n); setModal(null); }}
+        />
+      )}
+      {modal?.type === "userView" && (
+        <Modal title="User details" onClose={() => setModal(null)}>
+          {Object.entries(modal.item).filter(([k]) => k !== "id").map(([k, v]) => (
+            <div key={k} style={{ marginBottom: 10, fontSize: 13.5 }}>
+              <span style={{ color: COLORS.sub, textTransform: "capitalize" }}>{k}: </span>
+              <span style={{ color: COLORS.text }}>{v || "—"}</span>
+            </div>
+          ))}
+        </Modal>
+      )}
+    </Panel>
+  );
+}
+
+function UserModal({ title, initial, onClose, onSave }) {
+  const [form, setForm] = useState({
+    name: initial?.name || "", role: initial?.role || ROLES[0],
+    email: initial?.email || "", phone: initial?.phone || "", providerId: initial?.providerId || "",
+  });
+  const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
+  return (
+    <Modal title={title} onClose={onClose}>
+      <Field label="Full name"><input style={inputStyle} value={form.name} onChange={set("name")} /></Field>
+      <Field label="Role">
+        <select style={inputStyle} value={form.role} onChange={set("role")}>
+          {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
+        </select>
+      </Field>
+      <Field label="Email"><input style={inputStyle} value={form.email} onChange={set("email")} /></Field>
+      <Field label="Phone"><input style={inputStyle} value={form.phone} onChange={set("phone")} /></Field>
+      <Field label="Provider ID (clinical roles)"><input style={inputStyle} value={form.providerId} onChange={set("providerId")} /></Field>
+      <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 6 }}>
+        <Btn variant="ghost" onClick={onClose}>Cancel</Btn>
+        <Btn onClick={() => onSave(form)} disabled={!form.name}>Save</Btn>
+      </div>
+    </Modal>
+  );
+}
+
+function SimpleAddModal({ title, fields, onClose, onSave }) {
+  const init = {};
+  fields.forEach((f) => { init[f.k] = ""; });
+  const [form, setForm] = useState(init);
+  return (
+    <Modal title={title} onClose={onClose}>
+      {fields.map((f) => (
+        <Field key={f.k} label={f.label}>
+          <input style={inputStyle} value={form[f.k]} onChange={(e) => setForm({ ...form, [f.k]: e.target.value })} />
+        </Field>
+      ))}
+      <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 6 }}>
+        <Btn variant="ghost" onClick={onClose}>Cancel</Btn>
+        <Btn onClick={() => onSave(form)}>Save</Btn>
+      </div>
+    </Modal>
+  );
+}
+
+/* ---------------- Profile section ---------------- */
+
+function ProfileSection({ session }) {
+  const [tab, setTab] = useState("basic");
+  return (
+    <Panel title="My profile" icon={<Settings size={18} />}>
+      <div style={{ display: "flex", gap: 10, marginBottom: 20 }}>
+        <TabBtn active={tab === "basic"} onClick={() => setTab("basic")}>Basic details</TabBtn>
+        <TabBtn active={tab === "contact"} onClick={() => setTab("contact")}>Contact details</TabBtn>
+      </div>
+      {tab === "basic" ? (
+        <>
+          <Field label="Full name"><input style={inputStyle} defaultValue={session.userName} /></Field>
+          <Field label="Role"><input style={inputStyle} defaultValue={session.role} disabled /></Field>
+          <Field label="Username"><input style={inputStyle} defaultValue={session.userName?.replace(/\s+/g, "")} disabled /></Field>
+          <Field label="Provider ID"><input style={inputStyle} defaultValue={session.providerId || ""} /></Field>
+        </>
+      ) : (
+        <>
+          <Field label="Email"><input style={inputStyle} defaultValue={session.email || ""} /></Field>
+          <Field label="Phone"><input style={inputStyle} defaultValue={session.phone || ""} /></Field>
+        </>
+      )}
+      <Btn>Save changes</Btn>
+    </Panel>
+  );
+}
+
+/* ---------------- Layout helpers ---------------- */
+
+function Panel({ title, icon, right, children }) {
+  const width = useWindowWidth();
+  const isMobile = width < 768;
+  return (
+    <div style={{ padding: isMobile ? "16px 14px" : "28px 32px" }}>
+      <div style={{
+        display: "flex",
+        flexDirection: isMobile ? "column" : "row",
+        alignItems: isMobile ? "stretch" : "center",
+        justifyContent: "space-between",
+        gap: 12,
+        marginBottom: 20
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ color: COLORS.orange1 }}>{icon}</div>
+          <h2 style={{ margin: 0, fontSize: 19, color: COLORS.text, fontWeight: 700 }}>{title}</h2>
+        </div>
+        {right && (
+          <div style={{ display: "flex", justifyContent: isMobile ? "stretch" : "flex-end" }}>
+            {right}
+          </div>
+        )}
+      </div>
+      <div style={{ background: COLORS.panel, border: `1px solid ${COLORS.border}`, borderRadius: 14, padding: isMobile ? 16 : 22 }}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function Table({ cols, rows, empty }) {
+  if (rows.length === 0) {
+    return <div style={{ color: COLORS.sub, fontSize: 13.5, padding: "20px 0", textAlign: "center" }}>{empty}</div>;
+  }
+  return (
+    <div style={{ overflowX: "auto", width: "100%", WebkitOverflowScrolling: "touch" }}>
+      <table style={{ width: "100%", minWidth: 600, borderCollapse: "collapse", fontSize: 13.5 }}>
+        <thead>
+          <tr>
+            {cols.map((c) => (
+              <th key={c} style={{ textAlign: "left", color: COLORS.sub, fontWeight: 600, padding: "0 10px 12px", fontSize: 12, letterSpacing: 0.3, textTransform: "uppercase" }}>{c}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r, i) => (
+            <tr key={i} style={{ borderTop: `1px solid ${COLORS.border}` }}>
+              {r.map((cell, j) => (
+                <td key={j} style={{ padding: "12px 10px", color: COLORS.text }}>{cell}</td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+/* ---------------- Root App ---------------- */
+
+export default function App() {
+  const [data, setData] = useState(loadData());
+  const [session, setSession] = useState(loadSession());
+  const [screen, setScreen] = useState(session ? "dashboard" : "landing");
+  const [pendingRole, setPendingRole] = useState(null);
+  const [authMode, setAuthMode] = useState("signup");
+  const [view, setView] = useState({ section: "patients", tab: "all" });
+
+  useEffect(() => { saveData(data); }, [data]);
+
+  const goDashboard = (sess) => { saveSession(sess); setSession(sess); setScreen("dashboard"); };
+
+  if (screen === "landing") return <Landing
+    onNewOrg={() => { setAuthMode("signup"); setScreen("orgFlowNew"); }}
+    onExisting={() => setScreen("orgSelect")}
+  />;
+
+  if (screen === "orgSelect") return <OrgSelect
+    data={data}
+    onBack={() => setScreen("landing")}
+    onCreateNew={() => { setAuthMode("signup"); setScreen("orgFlowNew"); }}
+    onSelect={(org) => { setAuthMode("login"); setScreen("roleSelect"); setPendingRole({ org }); }}
+    onDelete={(id) => { const n = { ...data, orgs: data.orgs.filter((o) => o.id !== id) }; setData(n); saveData(n); }}
+  />;
+
+  if (screen === "orgFlowNew") return <RoleSelect
+    onBack={() => setScreen("landing")}
+    onPick={(role) => { setPendingRole({ role, isNew: true }); setAuthMode("signup"); setScreen("auth"); }}
+  />;
+
+  if (screen === "roleSelect") return <RoleSelect
+    onBack={() => setScreen("orgSelect")}
+    onPick={(role) => { setPendingRole({ ...pendingRole, role }); setScreen("auth"); }}
+  />;
+
+  if (screen === "auth") return <AuthForm
+    mode={authMode}
+    role={pendingRole?.role}
+    onBack={() => setScreen(pendingRole?.isNew ? "orgFlowNew" : "roleSelect")}
+    onSwitchMode={() => setAuthMode(authMode === "signup" ? "login" : "signup")}
+    onSubmit={(form) => {
+      if (authMode === "signup") {
+        const orgId = "org" + uid();
+        const next = {
+          ...data,
+          orgs: [...data.orgs, { id: orgId, name: form.orgName || "New Organisation", type: pendingRole.role }],
+          users: { ...data.users, [orgId]: [] },
+          physicians: { ...data.physicians, [orgId]: [] },
+          insurers: { ...data.insurers, [orgId]: [] },
+          locations: { ...data.locations, [orgId]: [] },
+          patients: { ...data.patients, [orgId]: [] },
+          referrals: { ...data.referrals, [orgId]: [] },
+        };
+        setData(next); saveData(next);
+        goDashboard({ orgId, userName: form.name || "New User", role: pendingRole.role, email: form.email, phone: form.phone, providerId: form.providerId });
+      } else {
+        goDashboard({ orgId: pendingRole.org.id, userName: form.name || "User", role: pendingRole.role, phone: form.phone });
+      }
+    }}
+  />;
+
+  // Dashboard
+  const orgId = session.orgId;
+  return (
+    <div style={{ minHeight: "100vh", background: COLORS.bg, fontFamily: "Inter, system-ui, sans-serif" }}>
+      <TopBar session={session} view={view} setView={setView} onLogout={() => {
+        clearSession(); setSession(null); setScreen("orgSelect");
+      }} />
+      {view.section === "patients"  && <PatientsSection  tab={view.tab} orgData={data} orgId={orgId} />}
+      {view.section === "business"  && <BusinessSection  tab={view.tab} />}
+      {view.section === "admin"     && <AdminSection     tab={view.tab} orgData={data} orgId={orgId} setOrgData={setData} />}
+      {view.section === "profile"   && <ProfileSection   session={session} />}
+    </div>
+  );
+}
