@@ -8,14 +8,18 @@ import {
 
 /* ---------------------------------------------------------
    DeckLink — Clinician Portal
-   Palette: deep navy base + steel-blue accent
+   Palette: deep navy base + steel-blue accent gradient
+   Glassmorphic panels, responsive mobile nav
 --------------------------------------------------------- */
 
 const COLORS = {
-  bg: "#0D1420",
-  panel: "#141D2C",
+  bg: "#0B1220",
+  panel: "rgba(20, 29, 44, 0.72)",
+  panelSolid: "#141D2C",
   panel2: "#101724",
+  glass: "rgba(11, 18, 32, 0.82)",
   border: "#263042",
+  borderGlass: "rgba(255,255,255,0.08)",
   orange1: "#2E7DB8",   // primary accent — steel blue
   orange2: "#3E97D6",
   text: "#E6EAF0",
@@ -90,7 +94,9 @@ function loadData() {
   localStorage.setItem(LS_KEY, JSON.stringify(seeded));
   return seeded;
 }
-function saveData(d) { localStorage.setItem(LS_KEY, JSON.stringify(d)); }
+function saveData(d) {
+  localStorage.setItem(LS_KEY, JSON.stringify(d));
+}
 function loadSession() {
   try {
     const raw = sessionStorage.getItem(SS_KEY);
@@ -98,24 +104,49 @@ function loadSession() {
   } catch (e) {}
   return null;
 }
-function saveSession(s) { sessionStorage.setItem(SS_KEY, JSON.stringify(s)); }
-function clearSession() { sessionStorage.removeItem(SS_KEY); }
+function saveSession(s) {
+  sessionStorage.setItem(SS_KEY, JSON.stringify(s));
+}
+function clearSession() {
+  sessionStorage.removeItem(SS_KEY);
+}
 
-/* ---------------- Shared UI ---------------- */
+/* ---------------- Shared UI bits ---------------- */
 
 function Btn({ children, onClick, variant = "primary", style, type = "button", disabled }) {
   const base = {
-    padding: "10px 18px", borderRadius: 8, fontSize: 14, fontWeight: 600,
-    cursor: disabled ? "not-allowed" : "pointer", border: "1px solid transparent",
-    transition: "all .15s", opacity: disabled ? 0.5 : 1,
+    padding: "10px 18px",
+    borderRadius: 8,
+    fontSize: 14,
+    fontWeight: 600,
+    cursor: disabled ? "not-allowed" : "pointer",
+    border: "1px solid transparent",
+    transition: "all .15s",
+    opacity: disabled ? 0.5 : 1,
   };
   const variants = {
-    primary:  { background: `linear-gradient(135deg, ${COLORS.orange1}, ${COLORS.orange2})`, color: "#FFFFFF" },
-    ghost:    { background: "transparent", color: COLORS.text, border: `1px solid ${COLORS.border}` },
-    danger:   { background: "transparent", color: COLORS.danger, border: `1px solid ${COLORS.danger}55` },
+    primary: {
+      background: `linear-gradient(135deg, ${COLORS.orange1}, ${COLORS.orange2})`,
+      color: "#FFFFFF",
+    },
+    ghost: {
+      background: "transparent",
+      color: COLORS.text,
+      border: `1px solid ${COLORS.border}`,
+    },
+    danger: {
+      background: "transparent",
+      color: COLORS.danger,
+      border: `1px solid ${COLORS.danger}55`,
+    },
   };
   return (
-    <button type={type} disabled={disabled} onClick={onClick} style={{ ...base, ...variants[variant], ...style }}>
+    <button
+      type={type}
+      disabled={disabled}
+      onClick={onClick}
+      style={{ ...base, ...variants[variant], ...style }}
+    >
       {children}
     </button>
   );
@@ -133,21 +164,31 @@ function Field({ label, children }) {
 }
 
 const inputStyle = {
-  width: "100%", padding: "10px 12px", borderRadius: 8,
-  border: `1px solid ${COLORS.border}`, background: COLORS.panel2,
-  color: COLORS.text, fontSize: 14, outline: "none", boxSizing: "border-box",
+  width: "100%",
+  padding: "10px 12px",
+  borderRadius: 8,
+  border: `1px solid ${COLORS.border}`,
+  background: COLORS.panel2,
+  color: COLORS.text,
+  fontSize: 14,
+  outline: "none",
+  boxSizing: "border-box",
 };
 
 function Modal({ title, onClose, children, width = 480 }) {
   return (
     <div style={{
-      position: "fixed", inset: 0, background: "rgba(4,7,14,0.75)",
+      position: "fixed", inset: 0, background: "rgba(4,7,14,0.6)",
+      backdropFilter: "blur(4px)", WebkitBackdropFilter: "blur(4px)",
       display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100,
+      padding: 16,
     }}>
       <div style={{
-        width, maxWidth: "90vw", maxHeight: "85vh", overflowY: "auto",
-        background: COLORS.panel, border: `1px solid ${COLORS.border}`,
-        borderRadius: 14, padding: 24,
+        width, maxWidth: "94vw", maxHeight: "85vh", overflowY: "auto",
+        background: COLORS.glass, backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)",
+        border: `1px solid ${COLORS.borderGlass}`,
+        borderRadius: 16, padding: 24,
+        boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
       }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
           <h3 style={{ margin: 0, fontSize: 17, color: COLORS.text }}>{title}</h3>
@@ -163,29 +204,34 @@ function Modal({ title, onClose, children, width = 480 }) {
 
 function StatusPill({ status }) {
   const map = {
-    Compliant: { c: COLORS.ok,     bg: "#3FA77222" },
-    Attention: { c: COLORS.warn,   bg: "#C99A3C22" },
-    Critical:  { c: COLORS.danger, bg: "#D9534F22" },
-    Pending:   { c: COLORS.warn,   bg: "#C99A3C22" },
+    Compliant: { c: COLORS.ok, bg: "#3DDC9722" },
+    Attention: { c: COLORS.warn, bg: "#FFC65C22" },
+    Critical: { c: COLORS.danger, bg: "#FF5C7A22" },
+    Pending: { c: COLORS.warn, bg: "#FFC65C22" },
   };
-  const s = map[status] || { c: COLORS.sub, bg: "#7C8AA022" };
+  const s = map[status] || { c: COLORS.sub, bg: "#8A96AE22" };
   return (
-    <span style={{ color: s.c, background: s.bg, fontSize: 12, fontWeight: 600, padding: "4px 10px", borderRadius: 999 }}>
+    <span style={{
+      color: s.c, background: s.bg, fontSize: 12, fontWeight: 600,
+      padding: "4px 10px", borderRadius: 999,
+    }}>
       {status}
     </span>
   );
 }
 
-/* ---------------- Pre-auth screens ---------------- */
+/* ---------------- Landing / Org / Role / Auth flow ---------------- */
 
-function useWindowWidth() {
-  const [width, setWidth] = useState(typeof window !== "undefined" ? window.innerWidth : 1200);
-  useEffect(() => {
-    const handleResize = () => setWidth(window.innerWidth);
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
-  return width;
+function GlobalStyles() {
+  return (
+    <style>{`
+      @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap');
+      * { font-family: 'Outfit', system-ui, sans-serif; box-sizing: border-box; }
+      ::selection { background: ${COLORS.orange1}55; }
+      input:disabled { opacity: 0.6; }
+      select { appearance: none; }
+    `}</style>
+  );
 }
 
 function Logo({ small }) {
@@ -210,8 +256,9 @@ function Centered({ children }) {
       alignItems: "center",
       justifyContent: "center",
       padding: 16,
-      fontFamily: "Inter, system-ui, sans-serif",
+      fontFamily: "'Outfit', system-ui, sans-serif",
     }}>
+      <GlobalStyles />
       {children}
     </div>
   );
@@ -328,7 +375,7 @@ function TabBtn({ active, children, onClick }) {
     <button onClick={onClick} style={{
       flex: 1, padding: "8px 10px", borderRadius: 8, fontSize: 13, cursor: "pointer",
       border: `1px solid ${active ? COLORS.orange1 : COLORS.border}`,
-      background: active ? `${COLORS.orange1}22` : "transparent",
+      background: active ? `${COLORS.orange1}18` : "transparent",
       color: active ? COLORS.orange1 : COLORS.sub, fontWeight: 600,
     }}>
       {children}
@@ -338,7 +385,9 @@ function TabBtn({ active, children, onClick }) {
 
 function AuthForm({ mode, role, onSubmit, onSwitchMode, onBack }) {
   const [tab, setTab] = useState("password");
-  const [form, setForm] = useState({ orgName: "", name: "", email: "", phone: "", password: "", providerId: "", city: "" });
+  const [form, setForm] = useState({
+    orgName: "", name: "", email: "", phone: "", password: "", providerId: "", city: "",
+  });
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
 
   return (
@@ -391,12 +440,18 @@ function AuthForm({ mode, role, onSubmit, onSwitchMode, onBack }) {
 
             {mode === "login" && tab === "password" && (
               <>
-                <Field label="Name"><input style={inputStyle} value={form.name} onChange={set("name")} placeholder="Your name" /></Field>
-                <Field label="Password"><input type="password" style={inputStyle} value={form.password} onChange={set("password")} placeholder="Password" /></Field>
+                <Field label="Name">
+                  <input style={inputStyle} value={form.name} onChange={set("name")} placeholder="Your name" />
+                </Field>
+                <Field label="Password">
+                  <input type="password" style={inputStyle} value={form.password} onChange={set("password")} placeholder="Password" />
+                </Field>
               </>
             )}
             {mode === "login" && tab === "phone" && (
-              <Field label="Phone Number"><input style={inputStyle} value={form.phone} onChange={set("phone")} placeholder="10-digit mobile" /></Field>
+              <Field label="Phone Number">
+                <input style={inputStyle} value={form.phone} onChange={set("phone")} placeholder="10-digit mobile" />
+              </Field>
             )}
           </div>
 
@@ -416,26 +471,26 @@ function AuthForm({ mode, role, onSubmit, onSwitchMode, onBack }) {
   );
 }
 
-/* ---------------- Dashboard top nav ---------------- */
+/* ---------------- Dashboard shell + top nav ---------------- */
 
 const NAV = {
   patients: [
-    { key: "all",        label: "All therapy" },
-    { key: "wireless",   label: "Wireless" },
-    { key: "action",     label: "Action Groups" },
-    { key: "ventilation",label: "Ventilation patients" },
-    { key: "referrals",  label: "Referrals" },
+    { key: "all", label: "All therapy" },
+    { key: "wireless", label: "Wireless" },
+    { key: "action", label: "Action Groups" },
+    { key: "ventilation", label: "Ventilation patients" },
+    { key: "referrals", label: "Referrals" },
   ],
   business: [
-    { key: "modules",    label: "Module management" },
+    { key: "modules", label: "Module management" },
     { key: "compliance", label: "Compliance exports" },
   ],
   admin: [
-    { key: "org",               label: "Organisation Details" },
-    { key: "locations",         label: "Locations" },
-    { key: "users",             label: "Users" },
-    { key: "physicians",        label: "Physicians" },
-    { key: "insurers",          label: "Insurers" },
+    { key: "org", label: "Organisation Details" },
+    { key: "locations", label: "Locations" },
+    { key: "users", label: "Users" },
+    { key: "physicians", label: "Physicians" },
+    { key: "insurers", label: "Insurers" },
     { key: "complianceOptions", label: "Compliance options" },
   ],
 };
@@ -443,26 +498,29 @@ const NAV = {
 function NavDropdown({ label, icon, items, onPick, active }) {
   const [open, setOpen] = useState(false);
   return (
-    <div style={{ position: "relative" }}
+    <div
+      style={{ position: "relative" }}
       onMouseEnter={() => setOpen(true)}
       onMouseLeave={() => setOpen(false)}
     >
       <button style={{
-        display: "flex", alignItems: "center", gap: 6, background: "none", border: "none",
-        color: active ? COLORS.orange1 : COLORS.text,
+        display: "flex", alignItems: "center", gap: 6, background: "none",
+        border: "none", color: active ? COLORS.orange1 : COLORS.text,
         fontSize: 14, fontWeight: 600, cursor: "pointer", padding: "8px 4px",
       }}>
         {icon}{label}<ChevronDown size={14} />
       </button>
       {open && (
         <div style={{
-          position: "absolute", top: "100%", left: 0, background: COLORS.panel,
-          border: `1px solid ${COLORS.border}`, borderRadius: 10, minWidth: 210,
-          padding: 6, zIndex: 50, boxShadow: "0 12px 28px rgba(0,0,0,0.5)",
+          position: "absolute", top: "100%", left: 0, background: COLORS.panelSolid,
+          border: `1px solid ${COLORS.border}`, borderRadius: 10, minWidth: 200,
+          padding: 6, zIndex: 50, boxShadow: "0 12px 24px rgba(0,0,0,0.4)",
         }}>
           {items.map((it) => (
-            <div key={it.key} onClick={() => { onPick(it.key); setOpen(false); }}
-              style={{ padding: "10px 12px", borderRadius: 7, fontSize: 13.5, color: COLORS.text, cursor: "pointer", fontWeight: 500 }}
+            <div key={it.key} onClick={() => { onPick(it.key); setOpen(false); }} style={{
+              padding: "10px 12px", borderRadius: 7, fontSize: 13.5, color: COLORS.text,
+              cursor: "pointer", fontWeight: 500,
+            }}
               onMouseEnter={(e) => e.currentTarget.style.background = COLORS.panel2}
               onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
             >
@@ -475,87 +533,65 @@ function NavDropdown({ label, icon, items, onPick, active }) {
   );
 }
 
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(typeof window !== "undefined" ? window.innerWidth < 768 : false);
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+  return isMobile;
+}
+
 function TopBar({ session, view, setView, onLogout }) {
-  const width = useWindowWidth();
-  const isMobile = width < 768;
+  const isMobile = useIsMobile();
   const [menuOpen, setMenuOpen] = useState(false);
-  const [activeDropdown, setActiveDropdown] = useState(null);
 
-  const handleNavPick = (section, tab) => {
-    setView({ section, tab });
-    setMenuOpen(false);
-    setActiveDropdown(null);
-  };
-
-  const toggleDropdown = (name) => {
-    setActiveDropdown(activeDropdown === name ? null : name);
+  const glassBar = {
+    background: COLORS.glass,
+    backdropFilter: "blur(20px)",
+    WebkitBackdropFilter: "blur(20px)",
+    borderBottom: `1px solid ${COLORS.borderGlass}`,
   };
 
   if (isMobile) {
     return (
-      <div style={{ borderBottom: `1px solid ${COLORS.border}`, background: COLORS.panel, position: "relative", zIndex: 1000 }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 20px" }}>
+      <div style={{ position: "sticky", top: 0, zIndex: 60, ...glassBar }}>
+        <div style={{
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          padding: "12px 16px",
+        }}>
           <Logo small />
-          <button onClick={() => setMenuOpen(!menuOpen)} style={{ background: "none", border: "none", color: COLORS.text, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: 6 }}>
-            {menuOpen ? <X size={24} /> : <Menu size={24} />}
+          <button onClick={() => setMenuOpen(!menuOpen)} style={{
+            background: "none", border: `1px solid ${COLORS.border}`, borderRadius: 8,
+            color: COLORS.text, padding: "8px 10px", cursor: "pointer",
+          }}>
+            {menuOpen ? <X size={18} /> : <Menu size={18} />}
           </button>
         </div>
         {menuOpen && (
-          <div style={{ background: COLORS.panel, borderTop: `1px solid ${COLORS.border}`, padding: "16px 20px 24px", display: "flex", flexDirection: "column", gap: 16 }}>
-            <div>
-              <button onClick={() => toggleDropdown('patients')} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", background: "none", border: "none", color: view.section === "patients" ? COLORS.orange1 : COLORS.text, fontSize: 15, fontWeight: 600, cursor: "pointer", padding: "8px 0" }}>
-                <span style={{ display: "flex", alignItems: "center", gap: 8 }}><Users size={16} /> Patients</span>
-                <ChevronDown size={16} style={{ transform: activeDropdown === 'patients' ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
-              </button>
-              {activeDropdown === 'patients' && (
-                <div style={{ paddingLeft: 24, display: "flex", flexDirection: "column", gap: 4, marginTop: 4 }}>
-                  {NAV.patients.map(it => (
-                    <div key={it.key} onClick={() => handleNavPick("patients", it.key)} style={{ padding: "8px 0", fontSize: 14, color: view.section === "patients" && view.tab === it.key ? COLORS.orange1 : COLORS.sub, cursor: "pointer" }}>
-                      {it.label}
-                    </div>
-                  ))}
-                </div>
-              )}
+          <div style={{ padding: "0 16px 16px", display: "flex", flexDirection: "column", gap: 4 }}>
+            <MobileNavGroup label="Patients" icon={<Users size={15} />} items={NAV.patients}
+              onPick={(k) => { setView({ section: "patients", tab: k }); setMenuOpen(false); }} />
+            <MobileNavGroup label="Business" icon={<Building2 size={15} />} items={NAV.business}
+              onPick={(k) => { setView({ section: "business", tab: k }); setMenuOpen(false); }} />
+            <MobileNavGroup label="Administration" icon={<Shield size={15} />} items={NAV.admin}
+              onPick={(k) => { setView({ section: "admin", tab: k }); setMenuOpen(false); }} />
+            <button onClick={() => { setView({ section: "profile" }); setMenuOpen(false); }} style={{
+              textAlign: "left", background: "none", border: "none", color: COLORS.text,
+              fontSize: 14, fontWeight: 600, padding: "10px 4px", cursor: "pointer",
+            }}>
+              My profile
+            </button>
+            <div style={{ fontSize: 12.5, color: COLORS.sub, padding: "6px 4px" }}>
+              {session.userName} · <span style={{ color: COLORS.orange2 }}>{session.role}</span>
             </div>
-            <div>
-              <button onClick={() => toggleDropdown('business')} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", background: "none", border: "none", color: view.section === "business" ? COLORS.orange1 : COLORS.text, fontSize: 15, fontWeight: 600, cursor: "pointer", padding: "8px 0" }}>
-                <span style={{ display: "flex", alignItems: "center", gap: 8 }}><Building2 size={16} /> Business</span>
-                <ChevronDown size={16} style={{ transform: activeDropdown === 'business' ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
-              </button>
-              {activeDropdown === 'business' && (
-                <div style={{ paddingLeft: 24, display: "flex", flexDirection: "column", gap: 4, marginTop: 4 }}>
-                  {NAV.business.map(it => (
-                    <div key={it.key} onClick={() => handleNavPick("business", it.key)} style={{ padding: "8px 0", fontSize: 14, color: view.section === "business" && view.tab === it.key ? COLORS.orange1 : COLORS.sub, cursor: "pointer" }}>
-                      {it.label}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-            <div>
-              <button onClick={() => toggleDropdown('admin')} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", background: "none", border: "none", color: view.section === "admin" ? COLORS.orange1 : COLORS.text, fontSize: 15, fontWeight: 600, cursor: "pointer", padding: "8px 0" }}>
-                <span style={{ display: "flex", alignItems: "center", gap: 8 }}><Shield size={16} /> Administration</span>
-                <ChevronDown size={16} style={{ transform: activeDropdown === 'admin' ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
-              </button>
-              {activeDropdown === 'admin' && (
-                <div style={{ paddingLeft: 24, display: "flex", flexDirection: "column", gap: 4, marginTop: 4 }}>
-                  {NAV.admin.map(it => (
-                    <div key={it.key} onClick={() => handleNavPick("admin", it.key)} style={{ padding: "8px 0", fontSize: 14, color: view.section === "admin" && view.tab === it.key ? COLORS.orange1 : COLORS.sub, cursor: "pointer" }}>
-                      {it.label}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-            <div style={{ height: 1, background: COLORS.border, margin: "8px 0" }} />
-            <div onClick={() => handleNavPick("profile")} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 15, fontWeight: 600, color: view.section === "profile" ? COLORS.orange1 : COLORS.text, cursor: "pointer", padding: "8px 0" }}>
-              <Settings size={16} /> My profile
-            </div>
-            <div style={{ fontSize: 13, color: COLORS.sub, padding: "4px 0" }}>
-              Logged in as: <strong style={{ color: COLORS.text }}>{session.userName}</strong> ({session.role})
-            </div>
-            <button onClick={onLogout} style={{ background: "none", border: `1px solid ${COLORS.border}`, borderRadius: 8, color: COLORS.danger, cursor: "pointer", padding: "10px 14px", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, fontSize: 14, fontWeight: 600, marginTop: 8 }}>
-              <LogOut size={16} /> Logout
+            <button onClick={onLogout} style={{
+              background: "none", border: `1px solid ${COLORS.border}`, borderRadius: 8,
+              color: COLORS.sub, cursor: "pointer", padding: "10px 12px", display: "flex",
+              alignItems: "center", gap: 6, fontSize: 13, marginTop: 4,
+            }}>
+              <LogOut size={14} /> Logout
             </button>
           </div>
         )}
@@ -565,35 +601,42 @@ function TopBar({ session, view, setView, onLogout }) {
 
   return (
     <div style={{
+      position: "sticky", top: 0, zIndex: 60,
       display: "flex", alignItems: "center", justifyContent: "space-between",
-      padding: "14px 28px", borderBottom: `1px solid ${COLORS.border}`, background: COLORS.panel,
+      padding: "14px 28px", ...glassBar,
     }}>
       <div style={{ display: "flex", alignItems: "center", gap: 36 }}>
         <Logo small />
-        <NavDropdown label="Patients" icon={<Users size={15} style={{ marginRight: 2 }} />}
+        <NavDropdown
+          label="Patients" icon={<Users size={15} style={{ marginRight: 2 }} />}
           items={NAV.patients} active={view.section === "patients"}
-          onPick={(k) => setView({ section: "patients", tab: k })} />
-        <NavDropdown label="Business" icon={<Building2 size={15} style={{ marginRight: 2 }} />}
+          onPick={(k) => setView({ section: "patients", tab: k })}
+        />
+        <NavDropdown
+          label="Business" icon={<Building2 size={15} style={{ marginRight: 2 }} />}
           items={NAV.business} active={view.section === "business"}
-          onPick={(k) => setView({ section: "business", tab: k })} />
-        <NavDropdown label="Administration" icon={<Shield size={15} style={{ marginRight: 2 }} />}
+          onPick={(k) => setView({ section: "business", tab: k })}
+        />
+        <NavDropdown
+          label="Administration" icon={<Shield size={15} style={{ marginRight: 2 }} />}
           items={NAV.admin} active={view.section === "admin"}
-          onPick={(k) => setView({ section: "admin", tab: k })} />
+          onPick={(k) => setView({ section: "admin", tab: k })}
+        />
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
         <div onClick={() => setView({ section: "profile" })} style={{
-          cursor: "pointer", fontSize: 13.5,
-          color: view.section === "profile" ? COLORS.orange1 : COLORS.text, fontWeight: 600,
+          cursor: "pointer", fontSize: 13.5, color: view.section === "profile" ? COLORS.orange2 : COLORS.text,
+          fontWeight: 600,
         }}>
           My profile
         </div>
         <div style={{ fontSize: 12.5, color: COLORS.sub }}>
-          {session.userName} · <span style={{ color: COLORS.orange1 }}>{session.role}</span>
+          {session.userName} · <span style={{ color: COLORS.orange2 }}>{session.role}</span>
         </div>
         <button onClick={onLogout} style={{
           background: "none", border: `1px solid ${COLORS.border}`, borderRadius: 8,
-          color: COLORS.sub, cursor: "pointer", padding: "7px 12px",
-          display: "flex", alignItems: "center", gap: 6, fontSize: 13,
+          color: COLORS.sub, cursor: "pointer", padding: "7px 12px", display: "flex",
+          alignItems: "center", gap: 6, fontSize: 13,
         }}>
           <LogOut size={14} /> Logout
         </button>
@@ -602,11 +645,39 @@ function TopBar({ session, view, setView, onLogout }) {
   );
 }
 
+function MobileNavGroup({ label, icon, items, onPick }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div>
+      <button onClick={() => setOpen(!open)} style={{
+        width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
+        background: "none", border: "none", color: COLORS.text, fontSize: 14, fontWeight: 600,
+        padding: "10px 4px", cursor: "pointer",
+      }}>
+        <span style={{ display: "flex", alignItems: "center", gap: 8 }}>{icon}{label}</span>
+        <ChevronDown size={14} style={{ transform: open ? "rotate(180deg)" : "none", transition: "transform .15s" }} />
+      </button>
+      {open && (
+        <div style={{ paddingLeft: 22, display: "flex", flexDirection: "column" }}>
+          {items.map((it) => (
+            <button key={it.key} onClick={() => onPick(it.key)} style={{
+              textAlign: "left", background: "none", border: "none", color: COLORS.sub,
+              fontSize: 13.5, padding: "8px 4px", cursor: "pointer",
+            }}>
+              {it.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ---------------- Patients section ---------------- */
 
-function PatientsSection({ tab, orgData, orgId }) {
+function PatientsSection({ tab, orgData, orgId, refresh }) {
   const [q, setQ] = useState("");
-  const patients  = orgData.patients[orgId]  || [];
+  const patients = orgData.patients[orgId] || [];
   const referrals = orgData.referrals[orgId] || [];
 
   if (tab === "referrals") {
@@ -614,7 +685,7 @@ function PatientsSection({ tab, orgData, orgId }) {
       <Panel title="Referrals" icon={<ClipboardList size={18} />}>
         <Table
           cols={["Patient", "Referred by", "Reason", "Date", "Status"]}
-          rows={referrals.map((r) => [r.patient, r.referredBy, r.reason, r.date, <StatusPill key={r.id} status={r.status} />])}
+          rows={referrals.map((r) => [r.patient, r.referredBy, r.reason, r.date, <StatusPill status={r.status} />])}
           empty="No referrals yet."
         />
       </Panel>
@@ -622,12 +693,18 @@ function PatientsSection({ tab, orgData, orgId }) {
   }
 
   let filtered = patients;
-  if (tab === "wireless")   filtered = patients.filter((p) => p.connectivity === "Wireless");
+  if (tab === "wireless") filtered = patients.filter((p) => p.connectivity === "Wireless");
   if (tab === "ventilation") filtered = patients.filter((p) => p.therapy.includes("Ventilation") || p.therapy === "BiPAP");
-  if (tab === "action")     filtered = patients.filter((p) => p.status !== "Compliant");
+  if (tab === "action") filtered = patients.filter((p) => p.status !== "Compliant");
+
   filtered = filtered.filter((p) => p.name.toLowerCase().includes(q.toLowerCase()));
 
-  const titleMap = { all: "All therapy", wireless: "Wireless patients", action: "Action Groups — needs attention", ventilation: "Ventilation patients" };
+  const titleMap = {
+    all: "All therapy",
+    wireless: "Wireless patients",
+    action: "Action Groups — needs attention",
+    ventilation: "Ventilation patients",
+  };
 
   return (
     <Panel title={titleMap[tab] || "Patients"} icon={<Users size={18} />}
@@ -643,15 +720,12 @@ function PatientsSection({ tab, orgData, orgId }) {
         cols={["Patient", "Age", "Therapy", "Connectivity", "AHI", "Usage (hrs/night)", "Status", "Alert"]}
         rows={filtered.map((p) => [
           p.name, p.age, p.therapy,
-          <span key={p.id + "-c"} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
             {p.connectivity === "Wireless" ? <Wifi size={13} color={COLORS.ok} /> : <WifiOff size={13} color={COLORS.sub} />}
             {p.connectivity}
           </span>,
-          p.ahi, p.usageHrs,
-          <StatusPill key={p.id + "-s"} status={p.status} />,
-          p.alert
-            ? <span key={p.id + "-a"} style={{ color: COLORS.warn, fontSize: 12.5, display: "flex", alignItems: "center", gap: 4 }}><AlertTriangle size={12} />{p.alert}</span>
-            : <span key={p.id + "-ok"} style={{ color: COLORS.sub }}>—</span>,
+          p.ahi, p.usageHrs, <StatusPill status={p.status} />,
+          p.alert ? <span style={{ color: COLORS.warn, fontSize: 12.5, display: "flex", alignItems: "center", gap: 4 }}><AlertTriangle size={12} />{p.alert}</span> : <span style={{ color: COLORS.sub }}>—</span>,
         ])}
         empty="No patients match this view."
       />
@@ -691,8 +765,12 @@ function BusinessSection({ tab }) {
 /* ---------------- Administration section ---------------- */
 
 function AdminSection({ tab, orgData, orgId, setOrgData }) {
-  const [modal, setModal] = useState(null);
-  const commit = (next) => { setOrgData(next); saveData(next); };
+  const [modal, setModal] = useState(null); // {type, item}
+
+  const commit = (next) => {
+    setOrgData(next);
+    saveData(next);
+  };
 
   if (tab === "org") {
     const org = orgData.orgs.find((o) => o.id === orgId);
@@ -708,15 +786,16 @@ function AdminSection({ tab, orgData, orgId, setOrgData }) {
   if (tab === "locations") {
     const locs = orgData.locations[orgId] || [];
     return (
-      <Panel title="Locations" icon={<MapPin size={18} />}
-        right={<Btn onClick={() => setModal({ type: "location" })}><Plus size={14} style={{ marginRight: 6, verticalAlign: -2 }} />Add location</Btn>}
-      >
+      <Panel title="Locations" icon={<MapPin size={18} />} right={<Btn onClick={() => setModal({ type: "location" })}><Plus size={14} style={{ marginRight: 6, verticalAlign: -2 }} />Add location</Btn>}>
         <Table cols={["Name", "Address"]} rows={locs.map((l) => [l.name, l.address])} empty="No locations added." />
         {modal?.type === "location" && (
-          <SimpleAddModal title="Add location"
-            fields={[{ k: "name", label: "Location name" }, { k: "address", label: "Address" }]}
+          <SimpleAddModal title="Add location" fields={[{ k: "name", label: "Location name" }, { k: "address", label: "Address" }]}
             onClose={() => setModal(null)}
-            onSave={(vals) => { const n = { ...orgData }; n.locations[orgId] = [...locs, { id: uid(), ...vals }]; commit(n); setModal(null); }}
+            onSave={(vals) => {
+              const next = { ...orgData };
+              next.locations[orgId] = [...locs, { id: uid(), ...vals }];
+              commit(next); setModal(null);
+            }}
           />
         )}
       </Panel>
@@ -726,15 +805,16 @@ function AdminSection({ tab, orgData, orgId, setOrgData }) {
   if (tab === "insurers") {
     const insurers = orgData.insurers[orgId] || [];
     return (
-      <Panel title="Insurers" icon={<Shield size={18} />}
-        right={<Btn onClick={() => setModal({ type: "insurer" })}><Plus size={14} style={{ marginRight: 6, verticalAlign: -2 }} />Add insurer</Btn>}
-      >
+      <Panel title="Insurers" icon={<Shield size={18} />} right={<Btn onClick={() => setModal({ type: "insurer" })}><Plus size={14} style={{ marginRight: 6, verticalAlign: -2 }} />Add insurer</Btn>}>
         <Table cols={["Name", "Policy portal", "Contact"]} rows={insurers.map((i) => [i.name, i.policyPortal, i.contact])} empty="No insurers added." />
         {modal?.type === "insurer" && (
-          <SimpleAddModal title="Add insurer"
-            fields={[{ k: "name", label: "Insurer name" }, { k: "policyPortal", label: "Policy portal URL" }, { k: "contact", label: "Contact email" }]}
+          <SimpleAddModal title="Add insurer" fields={[{ k: "name", label: "Insurer name" }, { k: "policyPortal", label: "Policy portal URL" }, { k: "contact", label: "Contact email" }]}
             onClose={() => setModal(null)}
-            onSave={(vals) => { const n = { ...orgData }; n.insurers[orgId] = [...insurers, { id: uid(), ...vals }]; commit(n); setModal(null); }}
+            onSave={(vals) => {
+              const next = { ...orgData };
+              next.insurers[orgId] = [...insurers, { id: uid(), ...vals }];
+              commit(next); setModal(null);
+            }}
           />
         )}
       </Panel>
@@ -744,8 +824,12 @@ function AdminSection({ tab, orgData, orgId, setOrgData }) {
   if (tab === "complianceOptions") {
     return (
       <Panel title="Compliance options" icon={<FileText size={18} />}>
-        <Field label="Minimum usage hours/night for compliance"><input style={inputStyle} defaultValue="4" /></Field>
-        <Field label="Minimum compliant nights (of 30)"><input style={inputStyle} defaultValue="21" /></Field>
+        <Field label="Minimum usage hours/night for compliance">
+          <input style={inputStyle} defaultValue="4" />
+        </Field>
+        <Field label="Minimum compliant nights (of 30)">
+          <input style={inputStyle} defaultValue="21" />
+        </Field>
         <Btn>Save options</Btn>
       </Panel>
     );
@@ -764,8 +848,10 @@ function AdminSection({ tab, orgData, orgId, setOrgData }) {
           cols={["Name", "Speciality", "Hospital", "Phone", "Access", ""]}
           rows={physicians.map((p) => [
             p.name, p.speciality, p.hospital, p.phone, p.access,
-            <button key={p.id} onClick={() => {
-              const n = { ...orgData }; n.physicians[orgId] = physicians.filter((x) => x.id !== p.id); commit(n);
+            <button onClick={() => {
+              const next = { ...orgData };
+              next.physicians[orgId] = physicians.filter((x) => x.id !== p.id);
+              commit(next);
             }} style={{ background: "none", border: "none", color: COLORS.danger, cursor: "pointer" }}>
               <Trash2 size={14} />
             </button>,
@@ -773,20 +859,23 @@ function AdminSection({ tab, orgData, orgId, setOrgData }) {
           empty="No physicians added."
         />
         {modal?.type === "physician" && (
-          <SimpleAddModal title="Add physician"
-            fields={[
-              { k: "name", label: "Full name" }, { k: "speciality", label: "Speciality" },
-              { k: "hospital", label: "Hospital / clinic" }, { k: "phone", label: "Phone" },
-            ]}
+          <SimpleAddModal title="Add physician" fields={[
+            { k: "name", label: "Full name" }, { k: "speciality", label: "Speciality" },
+            { k: "hospital", label: "Hospital / clinic" }, { k: "phone", label: "Phone" },
+          ]}
             onClose={() => setModal(null)}
-            onSave={(vals) => { const n = { ...orgData }; n.physicians[orgId] = [...physicians, { id: uid(), access: "Read-only", ...vals }]; commit(n); setModal(null); }}
+            onSave={(vals) => {
+              const next = { ...orgData };
+              next.physicians[orgId] = [...physicians, { id: uid(), access: "Read-only", ...vals }];
+              commit(next); setModal(null);
+            }}
           />
         )}
       </Panel>
     );
   }
 
-  // Users CRUD (default)
+  // Users CRUD
   const users = orgData.users[orgId] || [];
   return (
     <Panel title="Users" icon={<Users size={18} />}
@@ -796,23 +885,35 @@ function AdminSection({ tab, orgData, orgId, setOrgData }) {
         cols={["Name", "Role", "Email", "Phone", ""]}
         rows={users.map((u) => [
           u.name, u.role, u.email, u.phone,
-          <div key={u.id} style={{ display: "flex", gap: 8 }}>
+          <div style={{ display: "flex", gap: 8 }}>
             <button onClick={() => setModal({ type: "userView", item: u })} style={{ background: "none", border: "none", color: COLORS.sub, cursor: "pointer" }}><Eye size={14} /></button>
             <button onClick={() => setModal({ type: "userEdit", item: u })} style={{ background: "none", border: "none", color: COLORS.sub, cursor: "pointer" }}><Edit2 size={14} /></button>
-            <button onClick={() => { const n = { ...orgData }; n.users[orgId] = users.filter((x) => x.id !== u.id); commit(n); }}
-              style={{ background: "none", border: "none", color: COLORS.danger, cursor: "pointer" }}><Trash2 size={14} /></button>
+            <button onClick={() => {
+              const next = { ...orgData };
+              next.users[orgId] = users.filter((x) => x.id !== u.id);
+              commit(next);
+            }} style={{ background: "none", border: "none", color: COLORS.danger, cursor: "pointer" }}><Trash2 size={14} /></button>
           </div>,
         ])}
         empty="No users yet."
       />
+
       {modal?.type === "userCreate" && (
         <UserModal title="Add user" onClose={() => setModal(null)}
-          onSave={(vals) => { const n = { ...orgData }; n.users[orgId] = [...users, { id: uid(), providerId: "", ...vals }]; commit(n); setModal(null); }}
+          onSave={(vals) => {
+            const next = { ...orgData };
+            next.users[orgId] = [...users, { id: uid(), providerId: "", ...vals }];
+            commit(next); setModal(null);
+          }}
         />
       )}
       {modal?.type === "userEdit" && (
         <UserModal title="Edit user" initial={modal.item} onClose={() => setModal(null)}
-          onSave={(vals) => { const n = { ...orgData }; n.users[orgId] = users.map((x) => x.id === modal.item.id ? { ...x, ...vals } : x); commit(n); setModal(null); }}
+          onSave={(vals) => {
+            const next = { ...orgData };
+            next.users[orgId] = users.map((x) => x.id === modal.item.id ? { ...x, ...vals } : x);
+            commit(next); setModal(null);
+          }}
         />
       )}
       {modal?.type === "userView" && (
@@ -856,7 +957,7 @@ function UserModal({ title, initial, onClose, onSave }) {
 
 function SimpleAddModal({ title, fields, onClose, onSave }) {
   const init = {};
-  fields.forEach((f) => { init[f.k] = ""; });
+  fields.forEach((f) => init[f.k] = "");
   const [form, setForm] = useState(init);
   return (
     <Modal title={title} onClose={onClose}>
@@ -904,29 +1005,26 @@ function ProfileSection({ session }) {
 /* ---------------- Layout helpers ---------------- */
 
 function Panel({ title, icon, right, children }) {
-  const width = useWindowWidth();
-  const isMobile = width < 768;
+  const isMobile = useIsMobile();
   return (
-    <div style={{ padding: isMobile ? "16px 14px" : "28px 32px" }}>
+    <div style={{ padding: isMobile ? "18px 14px" : "28px 32px" }}>
       <div style={{
-        display: "flex",
-        flexDirection: isMobile ? "column" : "row",
-        alignItems: isMobile ? "stretch" : "center",
-        justifyContent: "space-between",
-        gap: 12,
-        marginBottom: 20
+        display: "flex", justifyContent: "space-between", alignItems: isMobile ? "flex-start" : "center",
+        marginBottom: 20, flexDirection: isMobile ? "column" : "row", gap: isMobile ? 12 : 0,
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{ color: COLORS.orange1 }}>{icon}</div>
-          <h2 style={{ margin: 0, fontSize: 19, color: COLORS.text, fontWeight: 700 }}>{title}</h2>
+          <div style={{ color: COLORS.orange2 }}>{icon}</div>
+          <h2 style={{ margin: 0, fontSize: isMobile ? 17 : 19, color: COLORS.text, fontWeight: 700 }}>{title}</h2>
         </div>
-        {right && (
-          <div style={{ display: "flex", justifyContent: isMobile ? "stretch" : "flex-end" }}>
-            {right}
-          </div>
-        )}
+        {right}
       </div>
-      <div style={{ background: COLORS.panel, border: `1px solid ${COLORS.border}`, borderRadius: 14, padding: isMobile ? 16 : 22 }}>
+      <div style={{
+        background: COLORS.glass,
+        backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)",
+        border: `1px solid ${COLORS.borderGlass}`, borderRadius: 16,
+        padding: isMobile ? 14 : 22,
+        boxShadow: "0 8px 32px rgba(0,0,0,0.25)",
+      }}>
         {children}
       </div>
     </div>
@@ -938,20 +1036,20 @@ function Table({ cols, rows, empty }) {
     return <div style={{ color: COLORS.sub, fontSize: 13.5, padding: "20px 0", textAlign: "center" }}>{empty}</div>;
   }
   return (
-    <div style={{ overflowX: "auto", width: "100%", WebkitOverflowScrolling: "touch" }}>
-      <table style={{ width: "100%", minWidth: 600, borderCollapse: "collapse", fontSize: 13.5 }}>
+    <div style={{ overflowX: "auto" }}>
+      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13.5, minWidth: 560 }}>
         <thead>
           <tr>
             {cols.map((c) => (
-              <th key={c} style={{ textAlign: "left", color: COLORS.sub, fontWeight: 600, padding: "0 10px 12px", fontSize: 12, letterSpacing: 0.3, textTransform: "uppercase" }}>{c}</th>
+              <th key={c} style={{ textAlign: "left", color: COLORS.sub, fontWeight: 600, padding: "0 10px 12px", fontSize: 12, letterSpacing: 0.3, textTransform: "uppercase", whiteSpace: "nowrap" }}>{c}</th>
             ))}
           </tr>
         </thead>
         <tbody>
           {rows.map((r, i) => (
-            <tr key={i} style={{ borderTop: `1px solid ${COLORS.border}` }}>
+            <tr key={i} style={{ borderTop: `1px solid ${COLORS.borderGlass}` }}>
               {r.map((cell, j) => (
-                <td key={j} style={{ padding: "12px 10px", color: COLORS.text }}>{cell}</td>
+                <td key={j} style={{ padding: "12px 10px", color: COLORS.text, whiteSpace: "nowrap" }}>{cell}</td>
               ))}
             </tr>
           ))}
@@ -973,68 +1071,94 @@ export default function App() {
 
   useEffect(() => { saveData(data); }, [data]);
 
-  const goDashboard = (sess) => { saveSession(sess); setSession(sess); setScreen("dashboard"); };
+  const goDashboard = (sess) => {
+    saveSession(sess);
+    setSession(sess);
+    setScreen("dashboard");
+  };
 
-  if (screen === "landing") return <Landing
-    onNewOrg={() => { setAuthMode("signup"); setScreen("orgFlowNew"); }}
-    onExisting={() => setScreen("orgSelect")}
-  />;
+  if (screen === "landing") {
+    return <Landing
+      onNewOrg={() => { setAuthMode("signup"); setScreen("orgFlowNew"); }}
+      onExisting={() => setScreen("orgSelect")}
+    />;
+  }
 
-  if (screen === "orgSelect") return <OrgSelect
-    data={data}
-    onBack={() => setScreen("landing")}
-    onCreateNew={() => { setAuthMode("signup"); setScreen("orgFlowNew"); }}
-    onSelect={(org) => { setAuthMode("login"); setScreen("roleSelect"); setPendingRole({ org }); }}
-    onDelete={(id) => { const n = { ...data, orgs: data.orgs.filter((o) => o.id !== id) }; setData(n); saveData(n); }}
-  />;
-
-  if (screen === "orgFlowNew") return <RoleSelect
-    onBack={() => setScreen("landing")}
-    onPick={(role) => { setPendingRole({ role, isNew: true }); setAuthMode("signup"); setScreen("auth"); }}
-  />;
-
-  if (screen === "roleSelect") return <RoleSelect
-    onBack={() => setScreen("orgSelect")}
-    onPick={(role) => { setPendingRole({ ...pendingRole, role }); setScreen("auth"); }}
-  />;
-
-  if (screen === "auth") return <AuthForm
-    mode={authMode}
-    role={pendingRole?.role}
-    onBack={() => setScreen(pendingRole?.isNew ? "orgFlowNew" : "roleSelect")}
-    onSwitchMode={() => setAuthMode(authMode === "signup" ? "login" : "signup")}
-    onSubmit={(form) => {
-      if (authMode === "signup") {
-        const orgId = "org" + uid();
-        const next = {
-          ...data,
-          orgs: [...data.orgs, { id: orgId, name: form.orgName || "New Organisation", type: pendingRole.role }],
-          users: { ...data.users, [orgId]: [] },
-          physicians: { ...data.physicians, [orgId]: [] },
-          insurers: { ...data.insurers, [orgId]: [] },
-          locations: { ...data.locations, [orgId]: [] },
-          patients: { ...data.patients, [orgId]: [] },
-          referrals: { ...data.referrals, [orgId]: [] },
-        };
+  if (screen === "orgSelect") {
+    return <OrgSelect
+      data={data}
+      onBack={() => setScreen("landing")}
+      onCreateNew={() => { setAuthMode("signup"); setScreen("orgFlowNew"); }}
+      onSelect={(org) => { setAuthMode("login"); setScreen("roleSelect"); setPendingRole({ org }); }}
+      onDelete={(id) => {
+        const next = { ...data, orgs: data.orgs.filter((o) => o.id !== id) };
         setData(next); saveData(next);
-        goDashboard({ orgId, userName: form.name || "New User", role: pendingRole.role, email: form.email, phone: form.phone, providerId: form.providerId });
-      } else {
-        goDashboard({ orgId: pendingRole.org.id, userName: form.name || "User", role: pendingRole.role, phone: form.phone });
-      }
-    }}
-  />;
+      }}
+    />;
+  }
 
-  // Dashboard
+  if (screen === "orgFlowNew") {
+    return <RoleSelect
+      onBack={() => setScreen("landing")}
+      onPick={(role) => { setPendingRole({ role, isNew: true }); setAuthMode("signup"); setScreen("auth"); }}
+    />;
+  }
+
+  if (screen === "roleSelect") {
+    return <RoleSelect
+      onBack={() => setScreen("orgSelect")}
+      onPick={(role) => { setPendingRole({ ...pendingRole, role }); setScreen("auth"); }}
+    />;
+  }
+
+  if (screen === "auth") {
+    return <AuthForm
+      mode={authMode}
+      role={pendingRole?.role}
+      onBack={() => setScreen(pendingRole?.isNew ? "orgFlowNew" : "roleSelect")}
+      onSwitchMode={() => setAuthMode(authMode === "signup" ? "login" : "signup")}
+      onSubmit={(form) => {
+        if (authMode === "signup") {
+          const orgId = "org" + uid();
+          const next = {
+            ...data,
+            orgs: [...data.orgs, { id: orgId, name: form.orgName || "New Organisation", type: pendingRole.role }],
+            users: { ...data.users, [orgId]: [] },
+            physicians: { ...data.physicians, [orgId]: [] },
+            insurers: { ...data.insurers, [orgId]: [] },
+            locations: { ...data.locations, [orgId]: [] },
+            patients: { ...data.patients, [orgId]: [] },
+            referrals: { ...data.referrals, [orgId]: [] },
+          };
+          setData(next); saveData(next);
+          goDashboard({ orgId, userName: form.name || "New User", role: pendingRole.role, email: form.email, phone: form.phone, providerId: form.providerId });
+        } else {
+          goDashboard({ orgId: pendingRole.org.id, userName: form.name || "User", role: pendingRole.role, phone: form.phone });
+        }
+      }}
+    />;
+  }
+
+  // dashboard
   const orgId = session.orgId;
   return (
-    <div style={{ minHeight: "100vh", background: COLORS.bg, fontFamily: "Inter, system-ui, sans-serif" }}>
+    <div style={{
+      minHeight: "100vh",
+      background: `
+        radial-gradient(circle at 10% 10%, rgba(46,125,184,0.12), transparent 40%),
+        radial-gradient(circle at 90% 90%, rgba(62,151,214,0.10), transparent 45%),
+        linear-gradient(160deg, #0B1220 0%, #0E1524 55%, #0B1220 100%)
+      `,
+      fontFamily: "'Outfit', system-ui, sans-serif",
+    }}>
+      <GlobalStyles />
       <TopBar session={session} view={view} setView={setView} onLogout={() => {
-        clearSession(); setSession(null); setScreen("orgSelect");
+        clearSession(); setSession(null); setScreen("landing");
       }} />
-      {view.section === "patients"  && <PatientsSection  tab={view.tab} orgData={data} orgId={orgId} />}
-      {view.section === "business"  && <BusinessSection  tab={view.tab} />}
-      {view.section === "admin"     && <AdminSection     tab={view.tab} orgData={data} orgId={orgId} setOrgData={setData} />}
-      {view.section === "profile"   && <ProfileSection   session={session} />}
+      {view.section === "patients" && <PatientsSection tab={view.tab} orgData={data} orgId={orgId} />}
+      {view.section === "business" && <BusinessSection tab={view.tab} />}
+      {view.section === "admin" && <AdminSection tab={view.tab} orgData={data} orgId={orgId} setOrgData={setData} />}
+      {view.section === "profile" && <ProfileSection session={session} />}
     </div>
   );
 }
