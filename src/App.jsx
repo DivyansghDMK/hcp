@@ -6,6 +6,7 @@ import {
   Settings, ArrowLeft, Menu, HeartPulse
 } from "lucide-react";
 import ReportsSection from "./pages/ReportsSection.jsx";
+import { sendOTP, verifyOTP } from "./services/api.js";
 
 /* ---------------------------------------------------------
    DeckLink — Clinician Portal
@@ -384,12 +385,48 @@ function TabBtn({ active, children, onClick }) {
   );
 }
 
-function AuthForm({ mode, role, onSubmit, onSwitchMode, onBack }) {
+function AuthForm({ mode, role, onSubmit, onSwitchMode, onBack, pendingRole }) {
   const [tab, setTab] = useState("password");
   const [form, setForm] = useState({
-    orgName: "", name: "", email: "", phone: "", password: "", providerId: "", city: "",
+    orgName: "", name: "", email: "", phone: "", password: "", providerId: "", city: "", otp: "",
   });
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpLoading, setOtpLoading] = useState(false);
+  const [otpError, setOtpError] = useState(null);
+
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
+
+  const handleSendOTP = async () => {
+    if (!form.phone) {
+      setOtpError("Please enter your phone number.");
+      return;
+    }
+    setOtpLoading(true); setOtpError(null);
+    try {
+      await sendOTP(form.phone);
+      setOtpSent(true);
+    } catch (err) {
+      setOtpError(err.message || "Failed to send OTP. Please try again.");
+    } finally {
+      setOtpLoading(false);
+    }
+  };
+
+  const handleVerifyOTP = async () => {
+    if (!form.otp) {
+      setOtpError("Please enter the 6-digit OTP.");
+      return;
+    }
+    setOtpLoading(true); setOtpError(null);
+    try {
+      const res = await verifyOTP(form.phone, form.otp);
+      onSubmit({ ...form, token: res.token, isOtpVerified: true });
+    } catch (err) {
+      setOtpError(err.message || "Invalid or expired OTP.");
+    } finally {
+      setOtpLoading(false);
+    }
+  };
 
   return (
     <Centered>
@@ -400,13 +437,13 @@ function AuthForm({ mode, role, onSubmit, onSwitchMode, onBack }) {
             {mode === "signup" ? "Create Account" : "Sign In"}
           </h3>
           <p style={{ color: COLORS.sub, fontSize: 13, marginBottom: 18, textAlign: "center" }}>
-            {role} — {form.orgName || "Organisation"}
+            {mode === "signup" ? `${role} — ${form.orgName || "Organisation"}` : `Access ${pendingRole?.org?.name || "Organisation"}`}
           </p>
 
           {mode === "login" && (
             <div style={{ display: "flex", gap: 8, marginBottom: 18 }}>
               <TabBtn active={tab === "password"} onClick={() => setTab("password")}>Name & Password</TabBtn>
-              <TabBtn active={tab === "phone"} onClick={() => setTab("phone")}>Phone Number</TabBtn>
+              <TabBtn active={tab === "phone"} onClick={() => setTab("phone")}>Phone OTP</TabBtn>
             </div>
           )}
 
@@ -450,15 +487,39 @@ function AuthForm({ mode, role, onSubmit, onSwitchMode, onBack }) {
               </>
             )}
             {mode === "login" && tab === "phone" && (
-              <Field label="Phone Number">
-                <input style={inputStyle} value={form.phone} onChange={set("phone")} placeholder="10-digit mobile" />
-              </Field>
+              <>
+                <Field label="Phone Number">
+                  <input style={inputStyle} value={form.phone} onChange={set("phone")} placeholder="10-digit mobile" disabled={otpSent} />
+                </Field>
+                {otpSent && (
+                  <Field label="Enter 6-Digit OTP">
+                    <input style={inputStyle} value={form.otp} onChange={set("otp")} placeholder="e.g. 123456" maxLength={6} />
+                  </Field>
+                )}
+                {otpError && (
+                  <div style={{ color: COLORS.danger, fontSize: 13, marginBottom: 12 }}>
+                    {otpError}
+                  </div>
+                )}
+              </>
             )}
           </div>
 
-          <Btn onClick={() => onSubmit(form)} style={{ width: "100%", minHeight: "44px" }}>
-            {mode === "signup" ? "Create Account" : "Sign In"}
-          </Btn>
+          {mode === "login" && tab === "phone" ? (
+            !otpSent ? (
+              <Btn onClick={handleSendOTP} disabled={otpLoading} style={{ width: "100%", minHeight: "44px" }}>
+                {otpLoading ? "Sending..." : "Send Verification OTP"}
+              </Btn>
+            ) : (
+              <Btn onClick={handleVerifyOTP} disabled={otpLoading} style={{ width: "100%", minHeight: "44px" }}>
+                {otpLoading ? "Verifying..." : "Verify & Sign In"}
+              </Btn>
+            )
+          ) : (
+            <Btn onClick={() => onSubmit(form)} style={{ width: "100%", minHeight: "44px" }}>
+              {mode === "signup" ? "Create Account" : "Sign In"}
+            </Btn>
+          )}
 
           <div style={{ display: "flex", justifyContent: "space-between", marginTop: 16, alignItems: "center", flexWrap: "wrap", gap: 12 }}>
             <Btn variant="ghost" onClick={onBack} style={{ padding: "8px 12px" }}><ArrowLeft size={13} style={{ marginRight: 4, verticalAlign: -1 }} />Back</Btn>
@@ -1193,6 +1254,16 @@ export default function App() {
           goDashboard({ orgId, ...headUser, userName: headUser.name });
         } else {
           const orgId = pendingRole.org.id;
+          if (form.isOtpVerified) {
+            goDashboard({
+              orgId,
+              userName: form.name || "Dr. CardioX Live",
+              role: "HCP Head", // Grant full HCP Head dashboard privileges by default
+              phone: form.phone,
+              token: form.token
+            });
+            return;
+          }
           const orgUsers = data.users[orgId] || [];
           let user = null;
           if (form.phone && form.phone.trim() !== "") {
