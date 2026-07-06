@@ -85,6 +85,14 @@ const seedData = () => ({
       { id: uid(), patient: "Neha Kapoor", referredBy: "Dr. Karan Bose", reason: "Suspected OSA", date: "2026-06-28", status: "Pending" },
     ],
   },
+  devices: {
+    org1: [
+      { id: "dev1", serial: "0000", model: "RhythmUltra V1" },
+      { id: "dev2", serial: "0010", model: "RhythmUltra V1" },
+      { id: "dev3", serial: "A010", model: "RhythmUltra V1" },
+      { id: "dev4", serial: "A057", model: "RhythmUltra V1" },
+    ],
+  },
 });
 
 function loadData() {
@@ -553,6 +561,7 @@ const NAV = {
     { key: "users", label: "Users" },
     { key: "physicians", label: "Physicians" },
     { key: "insurers", label: "Insurers" },
+    { key: "devices", label: "ECG Devices" },
     { key: "complianceOptions", label: "Compliance options" },
   ],
   ecgReports: [
@@ -928,6 +937,37 @@ function AdminSection({ tab, orgData, orgId, setOrgData, isRestricted, onRestric
     );
   }
 
+  if (tab === "devices") {
+    const devices = orgData.devices?.[orgId] || [];
+    return (
+      <Panel title="ECG Devices" icon={<Activity size={18} />} right={<Btn onClick={isRestricted ? onRestrictedClick : () => setModal({ type: "device" })} style={isRestricted ? { background: "#cccccc", color: "#666666" } : undefined}><Plus size={14} style={{ marginRight: 6, verticalAlign: -2 }} />Register Device</Btn>}>
+        <p style={{ color: COLORS.sub, fontSize: 12.5, marginBottom: 12 }}>
+          Register clinical ECG hardware devices (by serial number) to link S3 report folders.
+        </p>
+        <Table cols={["Serial Number", "Model / Name", ""]} rows={devices.map((d) => [
+          d.serial, d.model,
+          <button onClick={isRestricted ? onRestrictedClick : () => {
+            const next = { ...orgData };
+            next.devices[orgId] = devices.filter((x) => x.id !== d.id);
+            commit(next);
+          }} style={{ background: "none", border: "none", color: isRestricted ? COLORS.sub + "55" : COLORS.danger, cursor: "pointer" }}>
+            <Trash2 size={14} />
+          </button>
+        ])} empty="No devices registered." />
+        {modal?.type === "device" && (
+          <SimpleAddModal title="Register Device" fields={[{ k: "serial", label: "Device Serial Number (e.g. A010, A057)" }, { k: "model", label: "Model / Description" }]}
+            onClose={() => setModal(null)}
+            onSave={(vals) => {
+              const next = { ...orgData };
+              next.devices[orgId] = [...devices, { id: uid(), ...vals }];
+              commit(next); setModal(null);
+            }}
+          />
+        )}
+      </Panel>
+    );
+  }
+
   if (tab === "complianceOptions") {
     return (
       <Panel title="Compliance options" icon={<FileText size={18} />}>
@@ -1249,6 +1289,7 @@ export default function App() {
             locations: { ...data.locations, [orgId]: [] },
             patients: { ...data.patients, [orgId]: [] },
             referrals: { ...data.referrals, [orgId]: [] },
+            devices: { ...data.devices, [orgId]: [] },
           };
           setData(next); saveData(next);
           goDashboard({ orgId, ...headUser, userName: headUser.name });
@@ -1303,7 +1344,7 @@ export default function App() {
       {view.section === "patients" && <PatientsSection tab={view.tab} orgData={data} orgId={orgId} />}
       {view.section === "business" && <BusinessSection tab={view.tab} />}
       {view.section === "admin" && <AdminSection tab={view.tab} orgData={data} orgId={orgId} setOrgData={setData} isRestricted={isRestricted} onRestrictedClick={onRestrictedClick} />}
-      {view.section === "ecgReports" && <ReportsSection session={session} />}
+      {view.section === "ecgReports" && <ReportsSection session={session} orgData={data} orgId={orgId} />}
       {view.section === "profile" && <ProfileSection session={session} isRestricted={isRestricted} onRestrictedClick={onRestrictedClick} />}
 
       {restrictedAlert && (

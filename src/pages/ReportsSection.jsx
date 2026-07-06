@@ -81,7 +81,11 @@ function normalizeReport(r) {
   };
 }
 
-export default function ReportsSection({ session }) {
+export default function ReportsSection({ session, orgData, orgId }) {
+  const devices = orgData?.devices?.[orgId] || [];
+  const defaultSerial = devices.length > 0 ? devices[0].serial : "A010";
+
+  const [selectedSerial, setSelectedSerial] = useState(defaultSerial);
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState(null);
@@ -99,7 +103,7 @@ export default function ReportsSection({ session }) {
   async function load() {
     setLoading(true); setError(null);
     try {
-      const res = await getReports();
+      const res = await getReports(selectedSerial);
       const raw = Array.isArray(res) ? res : (res.data || res.reports || []);
       const normalized = raw.map(normalizeReport);
       setReports(filterReportsByRole(normalized, session));
@@ -114,7 +118,7 @@ export default function ReportsSection({ session }) {
     }
   }
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [selectedSerial]);
 
   if (noAccess) return (
     <div style={{ padding: "40px 32px", textAlign: "center" }}>
@@ -166,9 +170,28 @@ export default function ReportsSection({ session }) {
             </span>
           )}
         </div>
-        <button onClick={load} style={{ display:"flex", alignItems:"center", gap:6, background:"none", border:`1px solid ${C.border}`, borderRadius:8, color:C.sub, cursor:"pointer", padding:"7px 14px", fontSize:13 }}>
-          <RefreshCw size={14} /> Refresh
-        </button>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          {devices.length > 0 && (
+            <select
+              value={selectedSerial}
+              onChange={(e) => setSelectedSerial(e.target.value)}
+              style={{
+                background: C.panel2, border: `1px solid ${C.border}`,
+                borderRadius: 8, color: C.text, padding: "8px 12px",
+                fontSize: 13, outline: "none", cursor: "pointer",
+              }}
+            >
+              {devices.map((d) => (
+                <option key={d.id} value={d.serial}>
+                  {d.model || "RhythmPro"} ({d.serial})
+                </option>
+              ))}
+            </select>
+          )}
+          <button onClick={load} style={{ display:"flex", alignItems:"center", gap:6, background:"none", border:`1px solid ${C.border}`, borderRadius:8, color:C.sub, cursor:"pointer", padding:"7px 14px", fontSize:13 }}>
+            <RefreshCw size={14} /> Refresh
+          </button>
+        </div>
       </div>
 
       {/* Filters */}

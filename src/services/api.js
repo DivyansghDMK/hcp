@@ -96,8 +96,11 @@ export async function saveUserDetails(payload) {
 
 // ─── Report Endpoints ─────────────────────────────────────────────────────────
 
-export async function getReports() {
-  const url = import.meta.env.VITE_REVIEWED_REPORTS_API_URL || "/reviewed-api/public/reviewed-reports";
+export async function getReports(serial = "") {
+  let url = import.meta.env.VITE_REVIEWED_REPORTS_API_URL || "/reviewed-api/public/reviewed-reports";
+  if (serial) {
+    url += `?RhythmUltra_serial=${encodeURIComponent(serial)}`;
+  }
   const apiKey = import.meta.env.VITE_REVIEWED_REPORTS_API_KEY || "9q7RZrcSkc7UMYwXLAJXo33N4AvulrfF5r23KrIL";
   
   const headers = {
