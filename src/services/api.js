@@ -11,8 +11,9 @@
  */
 
 const BASE_URL =
-  import.meta.env.VITE_ECG_API_BASE_URL ||
-  "https://pmltkfluqk.execute-api.us-east-1.amazonaws.com";
+  import.meta.env.VITE_ECG_API_BASE_URL !== undefined
+    ? import.meta.env.VITE_ECG_API_BASE_URL
+    : "https://pmltkfluqk.execute-api.us-east-1.amazonaws.com";
 
 const AUTH_PREFIX = import.meta.env.VITE_ECG_AUTH_PREFIX || "/dev/api";
 const API_PREFIX  = import.meta.env.VITE_ECG_API_PREFIX  || "/api";
