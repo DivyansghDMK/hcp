@@ -1,0 +1,185 @@
+import React, { useState, useEffect } from "react";
+import { FileText, Download, Eye, AlertTriangle, RefreshCw, Clock, CheckCircle, UserCheck } from "lucide-react";
+import { getReports, filterReportsByRole, canViewPDF } from "../services/api.js";
+
+/* ── palette (mirrors App.jsx COLORS) ─────────────────────────────── */
+const C = {
+  panel: "rgba(20, 29, 44, 0.72)", panel2: "#101724",
+  border: "#263042", borderGlass: "rgba(255,255,255,0.08)",
+  blue1: "#2E7DB8", blue2: "#3E97D6",
+  text: "#E6EAF0", sub: "#7C8AA0",
+  danger: "#D9534F", ok: "#3FA772", warn: "#C99A3C",
+};
+
+const STATUS_META = {
+  "Pending":      { color: C.warn,   icon: <Clock size={12} />,       label: "Pending" },
+  "Assigned":     { color: C.blue2,  icon: <UserCheck size={12} />,   label: "Assigned" },
+  "Under Review": { color: C.warn,   icon: <Eye size={12} />,         label: "Under Review" },
+  "Reviewed":     { color: C.ok,     icon: <CheckCircle size={12} />, label: "Reviewed" },
+  "Compliant":    { color: C.ok,     icon: <CheckCircle size={12} />, label: "Compliant" },
+};
+
+function StatusBadge({ status }) {
+  const m = STATUS_META[status] || { color: C.sub, icon: null, label: status || "Unknown" };
+  return (
+    <span style={{
+      display: "inline-flex", alignItems: "center", gap: 4,
+      background: m.color + "22", color: m.color,
+      fontSize: 11.5, fontWeight: 700, padding: "3px 9px",
+      borderRadius: 20, letterSpacing: 0.3,
+    }}>
+      {m.icon} {m.label}
+    </span>
+  );
+}
+
+export default function ReportsSection({ session }) {
+  const [reports, setReports] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError]     = useState(null);
+  const [search, setSearch]   = useState("");
+  const [statusFilter, setF]  = useState("All");
+
+  const role       = session?.role || "";
+  const pdfOk      = canViewPDF(role);
+  const isHead     = role === "HCP Head" || role === "Doctor Head";
+  const isAdmin    = role === "Sr. Admin" || role === "Jr. Admin";
+  const isDoctor   = role === "Sr. Clinical Doctor" || role === "Jr. Clinical Doctor";
+  const noAccess   = !isHead && !isAdmin && !isDoctor;
+
+  async function load() {
+    setLoading(true); setError(null);
+    try {
+      const res = await getReports();
+      const raw = Array.isArray(res) ? res : (res.data || res.reports || []);
+      setReports(filterReportsByRole(raw, session));
+    } catch (e) {
+      setError(e.message || "Failed to load reports.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => { load(); }, []);
+
+  if (noAccess) return (
+    <div style={{ padding: "40px 32px", textAlign: "center" }}>
+      <AlertTriangle size={40} color={C.warn} style={{ marginBottom: 16 }} />
+      <p style={{ color: C.text, fontSize: 16, fontWeight: 600 }}>Access Restricted</p>
+      <p style={{ color: C.sub, fontSize: 13.5, marginTop: 6 }}>
+        ECG report access is not available for your role ({role}).
+      </p>
+    </div>
+  );
+
+  const visible = reports.filter((r) => {
+    const q = search.toLowerCase();
+    const matchQ = !q || r.patient_name?.toLowerCase().includes(q) ||
+      r.report_uid?.toLowerCase().includes(q) || r.doctor_name?.toLowerCase().includes(q);
+    const matchS = statusFilter === "All" || r.status === statusFilter;
+    return matchQ && matchS;
+  });
+
+  return (
+    <div style={{ padding: "28px 32px" }}>
+      {/* Header */}
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:24, flexWrap:"wrap", gap:12 }}>
+        <div>
+          <h2 style={{ color:C.text, fontSize:20, fontWeight:700, margin:0 }}>ECG Reports</h2>
+          <p style={{ color:C.sub, fontSize:13, marginTop:4, margin:0 }}>
+            {isHead ? "All organisation reports" : isAdmin ? "All reports (view only)" : "Your assigned reports"}
+          </p>
+        </div>
+        <button onClick={load} style={{ display:"flex", alignItems:"center", gap:6, background:"none", border:`1px solid ${C.border}`, borderRadius:8, color:C.sub, cursor:"pointer", padding:"7px 14px", fontSize:13 }}>
+          <RefreshCw size={14} /> Refresh
+        </button>
+      </div>
+
+      {/* Filters */}
+      <div style={{ display:"flex", gap:10, marginBottom:18, flexWrap:"wrap" }}>
+        <input value={search} onChange={(e)=>setSearch(e.target.value)} placeholder="Search patient, report ID, doctor…"
+          style={{ flex:1, minWidth:200, background:C.panel2, border:`1px solid ${C.border}`, borderRadius:8, color:C.text, padding:"9px 14px", fontSize:13.5, outline:"none" }} />
+        {["All","Pending","Assigned","Under Review","Reviewed"].map((s) => (
+          <button key={s} onClick={()=>setF(s)} style={{ padding:"8px 16px", borderRadius:20, fontSize:12.5, fontWeight:600, cursor:"pointer", border:"1px solid", borderColor:statusFilter===s?C.blue1:C.border, background:statusFilter===s?C.blue1+"22":"transparent", color:statusFilter===s?C.blue2:C.sub }}>
+            {s}
+          </button>
+        ))}
+      </div>
+
+      {loading && (
+        <div style={{ textAlign:"center", padding:"60px 0", color:C.sub }}>
+          <RefreshCw size={28} style={{ marginBottom:12 }} />
+          <p style={{ margin:0, fontSize:14 }}>Loading reports from server…</p>
+        </div>
+      )}
+
+      {!loading && error && (
+        <div style={{ background:C.danger+"18", border:`1px solid ${C.danger}44`, borderRadius:10, padding:"18px 22px", color:C.danger, fontSize:14 }}>
+          <AlertTriangle size={16} style={{ marginRight:8, verticalAlign:-2 }} />
+          {error}
+          <button onClick={load} style={{ marginLeft:16, background:"none", border:"none", color:C.blue2, cursor:"pointer", fontSize:13, fontWeight:600 }}>Retry</button>
+        </div>
+      )}
+
+      {!loading && !error && (
+        <div style={{ background:C.panel, borderRadius:14, border:`1px solid ${C.borderGlass}`, backdropFilter:"blur(12px)", overflow:"hidden" }}>
+          {visible.length === 0 ? (
+            <div style={{ padding:"52px 0", textAlign:"center", color:C.sub }}>
+              <FileText size={36} style={{ marginBottom:12, opacity:0.4 }} />
+              <p style={{ fontSize:14, margin:0 }}>No reports found.</p>
+            </div>
+          ) : (
+            <div style={{ overflowX:"auto" }}>
+              <table style={{ width:"100%", borderCollapse:"collapse", fontSize:13.5, minWidth:640 }}>
+                <thead>
+                  <tr>
+                    {["Patient","Report ID","Date","Status","Assigned Doctor","Actions"].map((col) => (
+                      <th key={col} style={{ textAlign:"left", color:C.sub, fontWeight:600, padding:"12px 16px", fontSize:11.5, letterSpacing:0.4, textTransform:"uppercase", borderBottom:`1px solid ${C.borderGlass}` }}>
+                        {col}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {visible.map((r, i) => (
+                    <tr key={r.report_id || r.report_uid || i} style={{ borderTop: i>0 ? `1px solid ${C.borderGlass}` : "none" }}>
+                      <td style={{ padding:"13px 16px", color:C.text, fontWeight:600 }}>{r.patient_name || "—"}</td>
+                      <td style={{ padding:"13px 16px", color:C.sub, fontFamily:"monospace", fontSize:12 }}>{r.report_uid || r.report_id || "—"}</td>
+                      <td style={{ padding:"13px 16px", color:C.sub, fontSize:12.5 }}>
+                        {r.created_at ? new Date(r.created_at).toLocaleDateString("en-IN",{day:"2-digit",month:"short",year:"numeric"}) : "—"}
+                      </td>
+                      <td style={{ padding:"13px 16px" }}><StatusBadge status={r.status} /></td>
+                      <td style={{ padding:"13px 16px", color:C.sub, fontSize:13 }}>{r.doctor_name || <span style={{opacity:0.4}}>Unassigned</span>}</td>
+                      <td style={{ padding:"13px 16px" }}>
+                        <div style={{ display:"flex", gap:8 }}>
+                          {pdfOk && r.storage_url ? (
+                            <>
+                              <a href={r.storage_url} target="_blank" rel="noreferrer" style={{ display:"inline-flex", alignItems:"center", gap:4, padding:"5px 12px", borderRadius:6, fontSize:12, fontWeight:600, background:C.blue1+"22", color:C.blue2, border:`1px solid ${C.blue1}44`, textDecoration:"none" }}>
+                                <Eye size={13} /> View
+                              </a>
+                              <a href={r.storage_url} download style={{ display:"inline-flex", alignItems:"center", gap:4, padding:"5px 10px", borderRadius:6, fontSize:12, background:"transparent", color:C.sub, border:`1px solid ${C.border}`, textDecoration:"none" }}>
+                                <Download size={13} />
+                              </a>
+                            </>
+                          ) : (
+                            <span style={{ color:C.sub, fontSize:12, opacity:0.5 }}>{pdfOk?"No PDF":"No access"}</span>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {!loading && !error && visible.length > 0 && (
+        <p style={{ color:C.sub, fontSize:12, marginTop:12 }}>
+          Showing {visible.length} of {reports.length} report{reports.length!==1?"s":""}
+        </p>
+      )}
+    </div>
+  );
+}

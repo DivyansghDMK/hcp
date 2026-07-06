@@ -3,8 +3,9 @@ import {
   Activity, Users, Building2, Stethoscope, Shield, FileText,
   ChevronDown, LogOut, Search, Plus, X, Edit2, Trash2, Eye,
   Wifi, WifiOff, AlertTriangle, UserPlus, MapPin, ClipboardList,
-  Settings, ArrowLeft, Menu
+  Settings, ArrowLeft, Menu, HeartPulse
 } from "lucide-react";
+import ReportsSection from "./pages/ReportsSection.jsx";
 
 /* ---------------------------------------------------------
    DeckLink — Clinician Portal
@@ -48,9 +49,9 @@ const seedData = () => ({
   ],
   users: {
     org1: [
-      { id: uid(), name: "Dr. Aditi Sharma", role: "Sr. Clinical Doctor", email: "aditi.sharma@fsrc.in", phone: "9810000001", providerId: "PRV-1001" },
-      { id: uid(), name: "Rahul Mehta", role: "Sr. Admin", email: "rahul.mehta@fsrc.in", phone: "9810000002", providerId: "" },
-      { id: uid(), name: "Priya Nair", role: "Receptionist", email: "priya.nair@fsrc.in", phone: "9810000003", providerId: "" },
+      { id: uid(), name: "Dr. Aditi Sharma", role: "Sr. Clinical Doctor", email: "aditi.sharma@fsrc.in", phone: "9810000001", providerId: "PRV-1001", password: "123" },
+      { id: uid(), name: "Rahul Mehta", role: "HCP Head", email: "rahul.mehta@fsrc.in", phone: "9810000002", providerId: "", password: "123" },
+      { id: uid(), name: "Priya Nair", role: "Receptionist", email: "priya.nair@fsrc.in", phone: "9810000003", providerId: "", password: "123" },
     ],
   },
   physicians: {
@@ -493,6 +494,12 @@ const NAV = {
     { key: "insurers", label: "Insurers" },
     { key: "complianceOptions", label: "Compliance options" },
   ],
+  ecgReports: [
+    { key: "all", label: "All Reports" },
+    { key: "pending", label: "Pending" },
+    { key: "assigned", label: "Assigned" },
+    { key: "reviewed", label: "Reviewed" },
+  ],
 };
 
 function NavDropdown({ label, icon, items, onPick, active }) {
@@ -577,14 +584,34 @@ function TopBar({ session, view, setView, onLogout }) {
               onPick={(k) => { setView({ section: "business", tab: k }); setMenuOpen(false); }} />
             <MobileNavGroup label="Administration" icon={<Shield size={15} />} items={NAV.admin}
               onPick={(k) => { setView({ section: "admin", tab: k }); setMenuOpen(false); }} />
+            <button
+              onClick={() => { setView({ section: "ecgReports", tab: "all" }); setMenuOpen(false); }}
+              style={{
+                textAlign: "left", background: "none", border: "none",
+                color: view.section === "ecgReports" ? COLORS.orange2 : COLORS.text,
+                fontSize: 14, fontWeight: 600, padding: "10px 4px", cursor: "pointer",
+                display: "flex", alignItems: "center", gap: 6,
+              }}
+            >
+              ECG Reports
+            </button>
             <button onClick={() => { setView({ section: "profile" }); setMenuOpen(false); }} style={{
               textAlign: "left", background: "none", border: "none", color: COLORS.text,
               fontSize: 14, fontWeight: 600, padding: "10px 4px", cursor: "pointer",
             }}>
               My profile
             </button>
-            <div style={{ fontSize: 12.5, color: COLORS.sub, padding: "6px 4px" }}>
+            <div style={{ fontSize: 12.5, color: COLORS.sub, padding: "6px 4px", display: "flex", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
               {session.userName} · <span style={{ color: COLORS.orange2 }}>{session.role}</span>
+              {session.role !== "Doctor Head" && session.role !== "HCP Head" && (
+                <span style={{
+                  fontSize: 10, fontWeight: 700, letterSpacing: 0.5,
+                  textTransform: "uppercase", background: COLORS.danger + "22",
+                  color: COLORS.danger, padding: "2px 6px", borderRadius: 4,
+                }}>
+                  View Only
+                </span>
+              )}
             </div>
             <button onClick={onLogout} style={{
               background: "none", border: `1px solid ${COLORS.border}`, borderRadius: 8,
@@ -622,6 +649,16 @@ function TopBar({ session, view, setView, onLogout }) {
           items={NAV.admin} active={view.section === "admin"}
           onPick={(k) => setView({ section: "admin", tab: k })}
         />
+        <div
+          onClick={() => setView({ section: "ecgReports", tab: "all" })}
+          style={{
+            display: "flex", alignItems: "center", gap: 6,
+            color: view.section === "ecgReports" ? COLORS.orange2 : COLORS.text,
+            fontSize: 14, fontWeight: 600, cursor: "pointer", padding: "8px 4px",
+          }}
+        >
+          ECG Reports
+        </div>
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
         <div onClick={() => setView({ section: "profile" })} style={{
@@ -630,8 +667,17 @@ function TopBar({ session, view, setView, onLogout }) {
         }}>
           My profile
         </div>
-        <div style={{ fontSize: 12.5, color: COLORS.sub }}>
+        <div style={{ fontSize: 12.5, color: COLORS.sub, display: "flex", alignItems: "center", gap: 6 }}>
           {session.userName} · <span style={{ color: COLORS.orange2 }}>{session.role}</span>
+          {session.role !== "Doctor Head" && session.role !== "HCP Head" && (
+            <span style={{
+              fontSize: 10, fontWeight: 700, letterSpacing: 0.5,
+              textTransform: "uppercase", background: COLORS.danger + "22",
+              color: COLORS.danger, padding: "2px 6px", borderRadius: 4,
+            }}>
+              View Only
+            </span>
+          )}
         </div>
         <button onClick={onLogout} style={{
           background: "none", border: `1px solid ${COLORS.border}`, borderRadius: 8,
@@ -764,7 +810,7 @@ function BusinessSection({ tab }) {
 
 /* ---------------- Administration section ---------------- */
 
-function AdminSection({ tab, orgData, orgId, setOrgData }) {
+function AdminSection({ tab, orgData, orgId, setOrgData, isRestricted, onRestrictedClick }) {
   const [modal, setModal] = useState(null); // {type, item}
 
   const commit = (next) => {
@@ -776,9 +822,9 @@ function AdminSection({ tab, orgData, orgId, setOrgData }) {
     const org = orgData.orgs.find((o) => o.id === orgId);
     return (
       <Panel title="Organisation Details" icon={<Building2 size={18} />}>
-        <Field label="Organisation name"><input style={inputStyle} defaultValue={org?.name} /></Field>
+        <Field label="Organisation name"><input style={inputStyle} defaultValue={org?.name} disabled={isRestricted} /></Field>
         <Field label="Organisation type"><input style={inputStyle} defaultValue={org?.type} disabled /></Field>
-        <Btn>Save changes</Btn>
+        <Btn onClick={isRestricted ? onRestrictedClick : undefined} disabled={isRestricted} style={isRestricted ? { background: "#cccccc", color: "#666666" } : undefined}>Save changes</Btn>
       </Panel>
     );
   }
@@ -786,7 +832,7 @@ function AdminSection({ tab, orgData, orgId, setOrgData }) {
   if (tab === "locations") {
     const locs = orgData.locations[orgId] || [];
     return (
-      <Panel title="Locations" icon={<MapPin size={18} />} right={<Btn onClick={() => setModal({ type: "location" })}><Plus size={14} style={{ marginRight: 6, verticalAlign: -2 }} />Add location</Btn>}>
+      <Panel title="Locations" icon={<MapPin size={18} />} right={<Btn onClick={isRestricted ? onRestrictedClick : () => setModal({ type: "location" })} style={isRestricted ? { background: "#cccccc", color: "#666666" } : undefined}><Plus size={14} style={{ marginRight: 6, verticalAlign: -2 }} />Add location</Btn>}>
         <Table cols={["Name", "Address"]} rows={locs.map((l) => [l.name, l.address])} empty="No locations added." />
         {modal?.type === "location" && (
           <SimpleAddModal title="Add location" fields={[{ k: "name", label: "Location name" }, { k: "address", label: "Address" }]}
@@ -805,7 +851,7 @@ function AdminSection({ tab, orgData, orgId, setOrgData }) {
   if (tab === "insurers") {
     const insurers = orgData.insurers[orgId] || [];
     return (
-      <Panel title="Insurers" icon={<Shield size={18} />} right={<Btn onClick={() => setModal({ type: "insurer" })}><Plus size={14} style={{ marginRight: 6, verticalAlign: -2 }} />Add insurer</Btn>}>
+      <Panel title="Insurers" icon={<Shield size={18} />} right={<Btn onClick={isRestricted ? onRestrictedClick : () => setModal({ type: "insurer" })} style={isRestricted ? { background: "#cccccc", color: "#666666" } : undefined}><Plus size={14} style={{ marginRight: 6, verticalAlign: -2 }} />Add insurer</Btn>}>
         <Table cols={["Name", "Policy portal", "Contact"]} rows={insurers.map((i) => [i.name, i.policyPortal, i.contact])} empty="No insurers added." />
         {modal?.type === "insurer" && (
           <SimpleAddModal title="Add insurer" fields={[{ k: "name", label: "Insurer name" }, { k: "policyPortal", label: "Policy portal URL" }, { k: "contact", label: "Contact email" }]}
@@ -825,12 +871,12 @@ function AdminSection({ tab, orgData, orgId, setOrgData }) {
     return (
       <Panel title="Compliance options" icon={<FileText size={18} />}>
         <Field label="Minimum usage hours/night for compliance">
-          <input style={inputStyle} defaultValue="4" />
+          <input style={inputStyle} defaultValue="4" disabled={isRestricted} />
         </Field>
         <Field label="Minimum compliant nights (of 30)">
-          <input style={inputStyle} defaultValue="21" />
+          <input style={inputStyle} defaultValue="21" disabled={isRestricted} />
         </Field>
-        <Btn>Save options</Btn>
+        <Btn onClick={isRestricted ? onRestrictedClick : undefined} disabled={isRestricted} style={isRestricted ? { background: "#cccccc", color: "#666666" } : undefined}>Save options</Btn>
       </Panel>
     );
   }
@@ -839,7 +885,7 @@ function AdminSection({ tab, orgData, orgId, setOrgData }) {
     const physicians = orgData.physicians[orgId] || [];
     return (
       <Panel title="Physicians" icon={<Stethoscope size={18} />}
-        right={<Btn onClick={() => setModal({ type: "physician" })}><Plus size={14} style={{ marginRight: 6, verticalAlign: -2 }} />Add physician</Btn>}
+        right={<Btn onClick={isRestricted ? onRestrictedClick : () => setModal({ type: "physician" })} style={isRestricted ? { background: "#cccccc", color: "#666666" } : undefined}><Plus size={14} style={{ marginRight: 6, verticalAlign: -2 }} />Add physician</Btn>}
       >
         <p style={{ color: COLORS.sub, fontSize: 12.5, marginBottom: 12 }}>
           External referring physicians — read-only access to their referred patients' data.
@@ -848,11 +894,11 @@ function AdminSection({ tab, orgData, orgId, setOrgData }) {
           cols={["Name", "Speciality", "Hospital", "Phone", "Access", ""]}
           rows={physicians.map((p) => [
             p.name, p.speciality, p.hospital, p.phone, p.access,
-            <button onClick={() => {
+            <button onClick={isRestricted ? onRestrictedClick : () => {
               const next = { ...orgData };
               next.physicians[orgId] = physicians.filter((x) => x.id !== p.id);
               commit(next);
-            }} style={{ background: "none", border: "none", color: COLORS.danger, cursor: "pointer" }}>
+            }} style={{ background: "none", border: "none", color: isRestricted ? COLORS.sub + "55" : COLORS.danger, cursor: "pointer" }}>
               <Trash2 size={14} />
             </button>,
           ])}
@@ -879,7 +925,7 @@ function AdminSection({ tab, orgData, orgId, setOrgData }) {
   const users = orgData.users[orgId] || [];
   return (
     <Panel title="Users" icon={<Users size={18} />}
-      right={<Btn onClick={() => setModal({ type: "userCreate" })}><UserPlus size={14} style={{ marginRight: 6, verticalAlign: -2 }} />Add user</Btn>}
+      right={<Btn onClick={isRestricted ? onRestrictedClick : () => setModal({ type: "userCreate" })} style={isRestricted ? { background: "#cccccc", color: "#666666" } : undefined}><UserPlus size={14} style={{ marginRight: 6, verticalAlign: -2 }} />Add user</Btn>}
     >
       <Table
         cols={["Name", "Role", "Email", "Phone", ""]}
@@ -887,12 +933,12 @@ function AdminSection({ tab, orgData, orgId, setOrgData }) {
           u.name, u.role, u.email, u.phone,
           <div style={{ display: "flex", gap: 8 }}>
             <button onClick={() => setModal({ type: "userView", item: u })} style={{ background: "none", border: "none", color: COLORS.sub, cursor: "pointer" }}><Eye size={14} /></button>
-            <button onClick={() => setModal({ type: "userEdit", item: u })} style={{ background: "none", border: "none", color: COLORS.sub, cursor: "pointer" }}><Edit2 size={14} /></button>
-            <button onClick={() => {
+            <button onClick={isRestricted ? onRestrictedClick : () => setModal({ type: "userEdit", item: u })} style={{ background: "none", border: "none", color: isRestricted ? COLORS.sub + "55" : COLORS.sub, cursor: "pointer" }}><Edit2 size={14} /></button>
+            <button onClick={isRestricted ? onRestrictedClick : () => {
               const next = { ...orgData };
               next.users[orgId] = users.filter((x) => x.id !== u.id);
               commit(next);
-            }} style={{ background: "none", border: "none", color: COLORS.danger, cursor: "pointer" }}><Trash2 size={14} /></button>
+            }} style={{ background: "none", border: "none", color: isRestricted ? COLORS.danger + "55" : COLORS.danger, cursor: "pointer" }}><Trash2 size={14} /></button>
           </div>,
         ])}
         empty="No users yet."
@@ -934,6 +980,7 @@ function UserModal({ title, initial, onClose, onSave }) {
   const [form, setForm] = useState({
     name: initial?.name || "", role: initial?.role || ROLES[0],
     email: initial?.email || "", phone: initial?.phone || "", providerId: initial?.providerId || "",
+    password: initial?.password || "123",
   });
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
   return (
@@ -947,6 +994,7 @@ function UserModal({ title, initial, onClose, onSave }) {
       <Field label="Email"><input style={inputStyle} value={form.email} onChange={set("email")} /></Field>
       <Field label="Phone"><input style={inputStyle} value={form.phone} onChange={set("phone")} /></Field>
       <Field label="Provider ID (clinical roles)"><input style={inputStyle} value={form.providerId} onChange={set("providerId")} /></Field>
+      <Field label="Password"><input type="password" style={inputStyle} value={form.password} onChange={set("password")} /></Field>
       <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 6 }}>
         <Btn variant="ghost" onClick={onClose}>Cancel</Btn>
         <Btn onClick={() => onSave(form)} disabled={!form.name}>Save</Btn>
@@ -976,7 +1024,7 @@ function SimpleAddModal({ title, fields, onClose, onSave }) {
 
 /* ---------------- Profile section ---------------- */
 
-function ProfileSection({ session }) {
+function ProfileSection({ session, isRestricted, onRestrictedClick }) {
   const [tab, setTab] = useState("basic");
   return (
     <Panel title="My profile" icon={<Settings size={18} />}>
@@ -986,18 +1034,18 @@ function ProfileSection({ session }) {
       </div>
       {tab === "basic" ? (
         <>
-          <Field label="Full name"><input style={inputStyle} defaultValue={session.userName} /></Field>
+          <Field label="Full name"><input style={inputStyle} defaultValue={session.userName} disabled={isRestricted} /></Field>
           <Field label="Role"><input style={inputStyle} defaultValue={session.role} disabled /></Field>
           <Field label="Username"><input style={inputStyle} defaultValue={session.userName?.replace(/\s+/g, "")} disabled /></Field>
-          <Field label="Provider ID"><input style={inputStyle} defaultValue={session.providerId || ""} /></Field>
+          <Field label="Provider ID"><input style={inputStyle} defaultValue={session.providerId || ""} disabled={isRestricted} /></Field>
         </>
       ) : (
         <>
-          <Field label="Email"><input style={inputStyle} defaultValue={session.email || ""} /></Field>
-          <Field label="Phone"><input style={inputStyle} defaultValue={session.phone || ""} /></Field>
+          <Field label="Email"><input style={inputStyle} defaultValue={session.email || ""} disabled={isRestricted} /></Field>
+          <Field label="Phone"><input style={inputStyle} defaultValue={session.phone || ""} disabled={isRestricted} /></Field>
         </>
       )}
-      <Btn>Save changes</Btn>
+      <Btn onClick={isRestricted ? onRestrictedClick : undefined} disabled={isRestricted} style={isRestricted ? { background: "#cccccc", color: "#666666" } : undefined}>Save changes</Btn>
     </Panel>
   );
 }
@@ -1068,6 +1116,7 @@ export default function App() {
   const [pendingRole, setPendingRole] = useState(null);
   const [authMode, setAuthMode] = useState("signup");
   const [view, setView] = useState({ section: "patients", tab: "all" });
+  const [restrictedAlert, setRestrictedAlert] = useState(false);
 
   useEffect(() => { saveData(data); }, [data]);
 
@@ -1089,7 +1138,7 @@ export default function App() {
       data={data}
       onBack={() => setScreen("landing")}
       onCreateNew={() => { setAuthMode("signup"); setScreen("orgFlowNew"); }}
-      onSelect={(org) => { setAuthMode("login"); setScreen("roleSelect"); setPendingRole({ org }); }}
+      onSelect={(org) => { setAuthMode("login"); setScreen("auth"); setPendingRole({ org }); }}
       onDelete={(id) => {
         const next = { ...data, orgs: data.orgs.filter((o) => o.id !== id) };
         setData(next); saveData(next);
@@ -1115,15 +1164,25 @@ export default function App() {
     return <AuthForm
       mode={authMode}
       role={pendingRole?.role}
-      onBack={() => setScreen(pendingRole?.isNew ? "orgFlowNew" : "roleSelect")}
+      pendingRole={pendingRole}
+      onBack={() => setScreen(pendingRole?.isNew ? "orgFlowNew" : "orgSelect")}
       onSwitchMode={() => setAuthMode(authMode === "signup" ? "login" : "signup")}
       onSubmit={(form) => {
         if (authMode === "signup") {
           const orgId = "org" + uid();
+          const headUser = {
+            id: uid(),
+            name: form.name || "Head Owner",
+            role: pendingRole.role,
+            email: form.email || "",
+            phone: form.phone || "",
+            providerId: form.providerId || "",
+            password: form.password || "123"
+          };
           const next = {
             ...data,
             orgs: [...data.orgs, { id: orgId, name: form.orgName || "New Organisation", type: pendingRole.role }],
-            users: { ...data.users, [orgId]: [] },
+            users: { ...data.users, [orgId]: [headUser] },
             physicians: { ...data.physicians, [orgId]: [] },
             insurers: { ...data.insurers, [orgId]: [] },
             locations: { ...data.locations, [orgId]: [] },
@@ -1131,9 +1190,21 @@ export default function App() {
             referrals: { ...data.referrals, [orgId]: [] },
           };
           setData(next); saveData(next);
-          goDashboard({ orgId, userName: form.name || "New User", role: pendingRole.role, email: form.email, phone: form.phone, providerId: form.providerId });
+          goDashboard({ orgId, ...headUser, userName: headUser.name });
         } else {
-          goDashboard({ orgId: pendingRole.org.id, userName: form.name || "User", role: pendingRole.role, phone: form.phone });
+          const orgId = pendingRole.org.id;
+          const orgUsers = data.users[orgId] || [];
+          let user = null;
+          if (form.phone && form.phone.trim() !== "") {
+            user = orgUsers.find((u) => u.phone === form.phone);
+          } else {
+            user = orgUsers.find((u) => u.name && u.name.toLowerCase() === form.name.toLowerCase() && u.password === form.password);
+          }
+          if (user) {
+            goDashboard({ orgId, ...user, userName: user.name });
+          } else {
+            alert("Invalid credentials. Please verify your Name and Password, or Phone Number.");
+          }
         }
       }}
     />;
@@ -1141,6 +1212,9 @@ export default function App() {
 
   // dashboard
   const orgId = session.orgId;
+  const isRestricted = session.role !== "Doctor Head" && session.role !== "HCP Head";
+  const onRestrictedClick = () => setRestrictedAlert(true);
+
   return (
     <div style={{
       minHeight: "100vh",
@@ -1157,8 +1231,20 @@ export default function App() {
       }} />
       {view.section === "patients" && <PatientsSection tab={view.tab} orgData={data} orgId={orgId} />}
       {view.section === "business" && <BusinessSection tab={view.tab} />}
-      {view.section === "admin" && <AdminSection tab={view.tab} orgData={data} orgId={orgId} setOrgData={setData} />}
-      {view.section === "profile" && <ProfileSection session={session} />}
+      {view.section === "admin" && <AdminSection tab={view.tab} orgData={data} orgId={orgId} setOrgData={setData} isRestricted={isRestricted} onRestrictedClick={onRestrictedClick} />}
+      {view.section === "ecgReports" && <ReportsSection session={session} />}
+      {view.section === "profile" && <ProfileSection session={session} isRestricted={isRestricted} onRestrictedClick={onRestrictedClick} />}
+
+      {restrictedAlert && (
+        <Modal title="Access Restricted" onClose={() => setRestrictedAlert(false)}>
+          <div style={{ textAlign: "center", padding: "10px 0" }}>
+            <p style={{ color: COLORS.text, fontSize: 15, marginBottom: 20 }}>
+              This account can view reports and history only.
+            </p>
+            <Btn onClick={() => setRestrictedAlert(false)} style={{ minWidth: 100 }}>OK</Btn>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }
