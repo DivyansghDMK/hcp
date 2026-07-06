@@ -97,7 +97,19 @@ export async function saveUserDetails(payload) {
 // ─── Report Endpoints ─────────────────────────────────────────────────────────
 
 export async function getReports() {
-  return request("GET", `${API_PREFIX}/report`, { auth: true });
+  const url = import.meta.env.VITE_REVIEWED_REPORTS_API_URL || "/reviewed-api/public/reviewed-reports";
+  const apiKey = import.meta.env.VITE_REVIEWED_REPORTS_API_KEY || "9q7RZrcSkc7UMYwXLAJXo33N4AvulrfF5r23KrIL";
+  
+  const headers = {
+    "Content-Type": "application/json",
+    "x-api-key": apiKey
+  };
+  
+  const res = await fetch(url, { headers });
+  if (!res.ok) {
+    throw new Error(`HTTP ${res.status}: Failed to fetch reviewed reports.`);
+  }
+  return res.json();
 }
 
 export function filterReportsByRole(reports, session) {

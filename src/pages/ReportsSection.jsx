@@ -33,12 +33,61 @@ function StatusBadge({ status }) {
   );
 }
 
+const MOCK_REPORTS = [
+  {
+    report_id: "rep1",
+    report_uid: "REP-2026-001",
+    patient_name: "Vikram Chauhan",
+    created_at: "2026-07-01T10:00:00Z",
+    status: "Reviewed",
+    doctor_name: "Dr. Aditi Sharma",
+    storage_url: "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf"
+  },
+  {
+    report_id: "rep2",
+    report_uid: "REP-2026-002",
+    patient_name: "Meena Kulkarni",
+    created_at: "2026-07-02T14:30:00Z",
+    status: "Assigned",
+    doctor_name: "Dr. Aditi Sharma",
+    storage_url: "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf"
+  },
+  {
+    report_id: "rep3",
+    report_uid: "REP-2026-003",
+    patient_name: "Ritu Malhotra",
+    created_at: "2026-07-03T09:15:00Z",
+    status: "Pending",
+    doctor_name: null,
+    storage_url: null
+  }
+];
+
+function normalizeReport(r) {
+  const pName = r.patient_name || r.patient || r.name || "—";
+  const rId   = r.report_uid || r.report_id || r.id || "REP-" + Math.random().toString(36).substring(2, 9).toUpperCase();
+  const dateStr = r.created_at || (r.date ? `${r.date}T${r.time || "00:00:00"}Z` : null);
+  const status  = r.status || "Reviewed";
+  const docName = r.doctor_name || r.doctor || r.doctorName || "—";
+  const url     = r.storage_url || r.preview_url || r.presigned_url || r.file_url || r.fileUrl || r.url || "";
+  
+  return {
+    patient_name: pName,
+    report_uid: rId,
+    created_at: dateStr,
+    status: status,
+    doctor_name: docName,
+    storage_url: url
+  };
+}
+
 export default function ReportsSection({ session }) {
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState(null);
   const [search, setSearch]   = useState("");
   const [statusFilter, setF]  = useState("All");
+  const [isLiveMode, setIsLiveMode] = useState(true);
 
   const role       = session?.role || "";
   const pdfOk      = canViewPDF(role);
@@ -52,9 +101,14 @@ export default function ReportsSection({ session }) {
     try {
       const res = await getReports();
       const raw = Array.isArray(res) ? res : (res.data || res.reports || []);
-      setReports(filterReportsByRole(raw, session));
+      const normalized = raw.map(normalizeReport);
+      setReports(filterReportsByRole(normalized, session));
+      setIsLiveMode(true);
     } catch (e) {
-      setError(e.message || "Failed to load reports.");
+      console.warn("Live ECG reports fetch failed, using fallback mock data:", e.message);
+      const normalizedMock = MOCK_REPORTS.map(normalizeReport);
+      setReports(filterReportsByRole(normalizedMock, session));
+      setIsLiveMode(false);
     } finally {
       setLoading(false);
     }
@@ -84,11 +138,33 @@ export default function ReportsSection({ session }) {
     <div style={{ padding: "28px 32px" }}>
       {/* Header */}
       <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:24, flexWrap:"wrap", gap:12 }}>
-        <div>
-          <h2 style={{ color:C.text, fontSize:20, fontWeight:700, margin:0 }}>ECG Reports</h2>
-          <p style={{ color:C.sub, fontSize:13, marginTop:4, margin:0 }}>
-            {isHead ? "All organisation reports" : isAdmin ? "All reports (view only)" : "Your assigned reports"}
-          </p>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div>
+            <h2 style={{ color:C.text, fontSize:20, fontWeight:700, margin:0 }}>ECG Reports</h2>
+            <p style={{ color:C.sub, fontSize:13, marginTop:4, margin:0 }}>
+              {isHead ? "All organisation reports" : isAdmin ? "All reports (view only)" : "Your assigned reports"}
+            </p>
+          </div>
+          {isLiveMode ? (
+            <span style={{
+              fontSize: 10, fontWeight: 700, textTransform: "uppercase",
+              background: C.ok + "22", color: C.ok, padding: "2px 8px", borderRadius: 4,
+              letterSpacing: 0.5, alignSelf: "center", marginTop: 2,
+            }}>
+              Live Cloud Sync
+            </span>
+          ) : (
+            <span 
+              title="Authenticate via phone OTP on login screen to connect to live AWS database"
+              style={{
+                fontSize: 10, fontWeight: 700, textTransform: "uppercase",
+                background: C.warn + "22", color: C.warn, padding: "2px 8px", borderRadius: 4,
+                letterSpacing: 0.5, alignSelf: "center", marginTop: 2, cursor: "help",
+              }}
+            >
+              Offline / Mock Demo
+            </span>
+          )}
         </div>
         <button onClick={load} style={{ display:"flex", alignItems:"center", gap:6, background:"none", border:`1px solid ${C.border}`, borderRadius:8, color:C.sub, cursor:"pointer", padding:"7px 14px", fontSize:13 }}>
           <RefreshCw size={14} /> Refresh
