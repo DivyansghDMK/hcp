@@ -15,6 +15,11 @@ export default defineConfig({
         target: 'https://pmltkfluqk.execute-api.us-east-1.amazonaws.com',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/live-api/, '/api')
+      },
+      '/reviewed-api': {
+        target: 'https://6jhix49qt6.execute-api.us-east-1.amazonaws.com',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/reviewed-api/, '/api')
       }
     }
   }
